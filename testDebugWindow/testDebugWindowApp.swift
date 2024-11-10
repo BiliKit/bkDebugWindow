@@ -14,6 +14,9 @@ class WindowDelegate: NSObject, NSWindowDelegate {
     var isAnimating = false
     var isUserDraggingDebugWindow = false
 
+    private let snapDistance: CGFloat = 20.0
+    private let snapAnimationDuration: TimeInterval = 0.25
+
     private func isDebugWindow(_ window: NSWindow) -> Bool {
         return window.identifier?.rawValue == "debug-window"
     }
@@ -34,10 +37,8 @@ class WindowDelegate: NSObject, NSWindowDelegate {
 
         if isDebugWindow(window) {
             isUserDraggingDebugWindow = true
-            // 如果用户开始拖动调试窗口，暂时取消吸附状态
-            if DebugState.shared.isAttached {
-                DebugState.shared.isAttached = false
-            }
+            // 开始拖动时直接取消吸附状态
+            DebugState.shared.isAttached = false
         }
     }
 
@@ -46,30 +47,33 @@ class WindowDelegate: NSObject, NSWindowDelegate {
         guard let window = notification.object as? NSWindow else { return }
 
         if isDebugWindow(window) {
-            // 如果是调试窗口移动，且不是程序控制的动画
-            if !isAnimating && isUserDraggingDebugWindow {
-                // 检查调试窗口是否还在主窗口旁边的吸附位置
-                if let mainWindow = self.mainWindow {
-                    let mainFrame = mainWindow.frame
-                    let debugFrame = window.frame
+            guard let mainWindow = self.mainWindow,
+                  isUserDraggingDebugWindow else { return }
 
-                    // 计算与主窗口的距离
-                    let xDistance = abs(debugFrame.minX - mainFrame.maxX)
-                    let yDistance = abs(debugFrame.minY - mainFrame.minY)
+            let mainFrame = mainWindow.frame
+            let debugFrame = window.frame
 
-                    // 如果在吸附范围内（20像素），自动吸附
-                    if xDistance <= 20 && yDistance <= 20 {
-                        DebugState.shared.isAttached = true
-                        updateDebugWindowFrame(mainWindow: mainWindow, animated: true)
-                    } else {
-                        DebugState.shared.isAttached = false
-                    }
-                }
+            // 检查是否在吸附范围内
+            let xDistance = abs(debugFrame.minX - mainFrame.maxX)
+            let yDistance = abs(debugFrame.minY - mainFrame.minY)
+
+            // 如果在吸附范围内，立即吸附
+            if xDistance <= snapDistance && yDistance <= snapDistance {
+                let snappedFrame = NSRect(
+                    x: mainFrame.maxX,
+                    y: mainFrame.minY,
+                    width: debugFrame.width,
+                    height: mainFrame.height
+                )
+
+                window.setFrame(snappedFrame, display: true, animate: true)
+                DebugState.shared.isAttached = true
+                window.level = mainWindow.level
             }
         } else {
             // 如果是主窗口移动
             self.mainWindow = window
-            if DebugState.shared.isAttached && !isUserDraggingDebugWindow {
+            if DebugState.shared.isAttached {
                 updateDebugWindowFrame(mainWindow: window, animated: false)
             }
         }
@@ -80,9 +84,19 @@ class WindowDelegate: NSObject, NSWindowDelegate {
         guard let window = notification.object as? NSWindow else { return }
 
         if isDebugWindow(window) {
-            // 延迟重置标志，确保其他处理已完成
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                self.isUserDraggingDebugWindow = false
+            isUserDraggingDebugWindow = false
+
+            // 如果窗口停止移动时在吸附范围内，确保完全对齐
+            if let mainWindow = self.mainWindow {
+                let mainFrame = mainWindow.frame
+                let debugFrame = window.frame
+
+                let xDistance = abs(debugFrame.minX - mainFrame.maxX)
+                let yDistance = abs(debugFrame.minY - mainFrame.minY)
+
+                if xDistance <= snapDistance && yDistance <= snapDistance {
+                    updateDebugWindowFrame(mainWindow: mainWindow, animated: true)
+                }
             }
         }
     }
@@ -147,10 +161,32 @@ class WindowDelegate: NSObject, NSWindowDelegate {
         }
     }
 
+    private func shouldSnapToMainWindow(_ debugFrame: NSRect, _ mainFrame: NSRect) -> Bool {
+        let xDistance = abs(debugFrame.minX - mainFrame.maxX)
+        let yDistance = abs(debugFrame.minY - mainFrame.minY)
+        return xDistance <= snapDistance && yDistance <= snapDistance
+    }
+
+    private func snapAnimator(for debugWindow: NSWindow, to frame: NSRect) {
+        isAnimating = true
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = snapAnimationDuration
+            context.timingFunction = CAMediaTimingFunction(controlPoints: 0.34, 1.56, 0.64, 1)
+            context.allowsImplicitAnimation = true
+
+            // 直接使用 animator() 来设置窗口frame
+            debugWindow.animator().setFrame(frame, display: true)
+
+        } completionHandler: {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                self.isAnimating = false
+            }
+        }
+    }
+
     func updateDebugWindowFrame(mainWindow: NSWindow, animated: Bool = true) {
         guard let debugWindow = self.debugWindow,
-              let screen = mainWindow.screen,
-              !isUserDraggingDebugWindow else { return }
+              let screen = mainWindow.screen else { return }
 
         let mainFrame = mainWindow.frame
         let maxX = min(mainFrame.maxX, screen.visibleFrame.maxX - debugWindow.frame.width)
@@ -163,16 +199,10 @@ class WindowDelegate: NSObject, NSWindowDelegate {
         )
 
         if animated {
-            isAnimating = true
             NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.25
-                context.timingFunction = CAMediaTimingFunction(controlPoints: 0.34, 1.56, 0.64, 1)
-                context.allowsImplicitAnimation = true
+                context.duration = 0.15
+                context.timingFunction = CAMediaTimingFunction(name: .easeOut)
                 debugWindow.animator().setFrame(debugFrame, display: true)
-            } completionHandler: {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                    self.isAnimating = false
-                }
             }
         } else {
             debugWindow.setFrame(debugFrame, display: true)
@@ -190,7 +220,10 @@ class WindowDelegate: NSObject, NSWindowDelegate {
         debugWindow.level = mainWindow.level
         debugWindow.isMovable = true
 
-        // 为调窗口设置代理
+        // 设置窗口动画属性
+        debugWindow.animationBehavior = .documentWindow
+
+        // 为调试窗口设置代理
         debugWindow.delegate = self
 
         // 确保主窗口的代理设置正确
@@ -201,7 +234,6 @@ class WindowDelegate: NSObject, NSWindowDelegate {
             updateDebugWindowFrame(mainWindow: mainWindow, animated: false)
         }
 
-        // 更新状态
         DebugState.shared.isWindowOpen = true
     }
 
