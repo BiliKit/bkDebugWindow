@@ -28,11 +28,14 @@ class WindowDelegate: NSObject, NSWindowDelegate {
         }
     }
 
-    // 修改窗口开始移动的处理
-    func windowWillStartLiveResize(_ notification: Notification) {
-        guard let window = notification.object as? NSWindow,
-              isDebugWindow(window) else { return }
-        isUserDraggingDebugWindow = true
+    // 窗口开始移动
+    func windowWillMove(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow else { return }
+
+        if isDebugWindow(window) {
+            // 如果是调试窗口被拖动
+            isUserDraggingDebugWindow = true
+        }
     }
 
     // 修改窗口移动的处理
@@ -40,14 +43,24 @@ class WindowDelegate: NSObject, NSWindowDelegate {
         guard let window = notification.object as? NSWindow else { return }
 
         if isDebugWindow(window) {
-            // 确保是用户拖动导致的移动
-            if isUserDraggingDebugWindow {
-                // 立即取消吸附
-                if DebugState.shared.isAttached {
-                    DebugState.shared.isAttached = false
+            // 如果调试窗口移动了，并且不是由程序控制的动画
+            if !isAnimating {
+                // 检查调试窗口是否还在主窗口旁边的吸附位置
+                if let mainWindow = self.mainWindow {
+                    let mainFrame = mainWindow.frame
+                    let debugFrame = window.frame
+
+                    // 如果调试窗口不在预期位置，取消吸附
+                    let expectedX = mainFrame.maxX
+                    let expectedY = mainFrame.minY
+
+                    if abs(debugFrame.minX - expectedX) > 1 || abs(debugFrame.minY - expectedY) > 1 {
+                        DebugState.shared.isAttached = false
+                    }
                 }
             }
         } else {
+            // 如果是主窗口移动
             self.mainWindow = window
             if DebugState.shared.isAttached {
                 updateDebugWindowFrame(mainWindow: window, animated: false)
@@ -55,10 +68,12 @@ class WindowDelegate: NSObject, NSWindowDelegate {
         }
     }
 
-    // 修改窗口结束移动的处理
-  func windowDidEndLiveResize(_ notification: Notification) {
+    // 窗口结束移动
+    func windowDidEndMove(_ notification: Notification) {
         guard let window = notification.object as? NSWindow else { return }
+
         if isDebugWindow(window) {
+            // 只有调试窗口结束移动时才重置标志
             isUserDraggingDebugWindow = false
         }
     }
@@ -138,10 +153,13 @@ class WindowDelegate: NSObject, NSWindowDelegate {
         )
 
         if animated {
+            isAnimating = true
             NSAnimationContext.runAnimationGroup { context in
                 context.duration = 0.3
                 context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
                 debugWindow.animator().setFrame(debugFrame, display: true)
+            } completionHandler: {
+                self.isAnimating = false
             }
         } else {
             debugWindow.setFrame(debugFrame, display: true)
@@ -159,7 +177,7 @@ class WindowDelegate: NSObject, NSWindowDelegate {
         debugWindow.level = mainWindow.level
         debugWindow.isMovable = true
 
-        // 为调试窗口设置代理
+        // 为调窗口设置代理
         debugWindow.delegate = self
 
         // 确保主窗口的代理设置正确
