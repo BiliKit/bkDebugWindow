@@ -52,6 +52,21 @@ class DebugState: ObservableObject {
     @Published var isAttached: Bool = false {
         didSet {
             if oldValue != isAttached {
+                if isAttached {
+                    lastNonAttachedFrame = windowFrame
+                    if let screen = NSScreen.main {
+                        let screenFrame = screen.visibleFrame
+                        windowFrame = CGRect(
+                            x: screenFrame.maxX - windowFrame.width,
+                            y: screenFrame.minY,
+                            width: windowFrame.width,
+                            height: screenFrame.height
+                        )
+                    }
+                } else if let lastFrame = lastNonAttachedFrame {
+                    windowFrame = lastFrame
+                }
+
                 NotificationCenter.default.post(
                     name: NSNotification.Name("DebugWindowAttachStateChanged"),
                     object: nil
@@ -64,6 +79,9 @@ class DebugState: ObservableObject {
     @Published var showDetails: Bool = false
     @Published var selectedMessageType: DebugMessageType? = nil
     @Published var debugMessages: [DebugMessage] = []
+
+    @Published var windowFrame: CGRect = CGRect(x: 0, y: 0, width: 400, height: 600)
+    private var lastNonAttachedFrame: CGRect?
 
     private let maxMessages = 1000
 
@@ -90,6 +108,12 @@ class DebugState: ObservableObject {
             return debugMessages.filter { $0.type == selectedType }
         }
         return debugMessages
+    }
+
+    func updateWindowPosition(_ newFrame: CGRect) {
+        if !isAttached {
+            windowFrame = newFrame
+        }
     }
 }
 
