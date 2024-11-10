@@ -6,7 +6,7 @@ struct DebugView: View {
     // MARK: - 属性
 
     /// 调试状态对象
-    @StateObject private var debugState = DebugState.shared
+    @EnvironmentObject private var debugState: DebugState
     /// 搜索文本
     @State private var searchText = ""
 
@@ -33,10 +33,21 @@ struct DebugView: View {
                 messageListView
             }
         }
-        .frame(minWidth: 330, minHeight: 300)
+        .frame(minWidth: 350, minHeight: 300)
         .background(WindowDragHandler())
         .task {
             WindowConfig.configureDebugWindow()
+        }
+        .onAppear {
+            print("DebugView: Appeared")
+        }
+        .onDisappear {
+            print("DebugView: Disappeared")
+            // 发送重置通知
+            NotificationCenter.default.post(
+                name: NSNotification.Name("ResetDebugState"),
+                object: nil
+            )
         }
     }
 
@@ -44,51 +55,61 @@ struct DebugView: View {
 
     /// 工具栏视图
     private var toolbarView: some View {
-        HStack(spacing: 12) {
-            // 修复 Picker 的语法
-            Picker("类型", selection: $debugState.selectedMessageType) {
-                Text("全部").tag(Optional<DebugMessageType>.none)
-                ForEach(DebugMessageType.allCases, id: \.self) { type in
-                    HStack {
-                        Image(systemName: type.icon)
-                        Text(type.rawValue)
+        VStack(spacing: 8) {
+            // 第一行
+            HStack(spacing: 12) {
+                // 类型选择器
+                Picker("类型", selection: $debugState.selectedMessageType) {
+                    Text("全部").tag(Optional<DebugMessageType>.none)
+                    ForEach(DebugMessageType.allCases, id: \.self) { type in
+                        HStack {
+                            Image(systemName: type.icon)
+                            Text(type.rawValue)
+                        }
+                        .tag(Optional<DebugMessageType>.some(type))
                     }
-                    .tag(Optional<DebugMessageType>.some(type))
                 }
-            }
-            .frame(width: 100)
+                .frame(width: 100)
 
-            // 搜索框
-            TextField("搜索", text: $searchText)
-                .textFieldStyle(.roundedBorder)
-                .frame(width: 150)
-                .font(.system(size: 12))
-
-            // 详情显示开关
-            Toggle("详情", isOn: Binding(
-                get: { debugState.showDetails },
-                set: { newValue in
-                    withAnimation {
-                        debugState.showDetails = newValue
+                // 详情显示开关
+                Toggle("详情", isOn: Binding(
+                    get: { debugState.showDetails },
+                    set: { newValue in
+                        withAnimation {
+                            debugState.showDetails = newValue
+                        }
+                        UserDefaults.standard.set(newValue, forKey: "debug_window_show_details")
                     }
-                    UserDefaults.standard.set(newValue, forKey: "debug_window_show_details")
-                }
-            ))
-            .toggleStyle(.switch)
-
-            // 吸附开关
-            Toggle("吸附", isOn: $debugState.isAttached)
+                ))
                 .toggleStyle(.switch)
 
-            // 清除按钮
-            Button(action: {
-                debugState.clearMessages()
-            }) {
-                Image(systemName: "trash")
-                    .foregroundColor(.gray)
+                // 吸附开关
+                Toggle("吸附", isOn: $debugState.isAttached)
+                    .toggleStyle(.switch)
+
+                // 清除按钮
+                Button(action: {
+                    debugState.clearMessages()
+                }) {
+                    Image(systemName: "trash")
+                        .foregroundColor(.gray)
+                }
+                .buttonStyle(.plain)
+                .help("清除所有消息")
+
+                Spacer()
             }
-            .buttonStyle(.plain)
-            .help("清除所有消息")
+
+            // 第二行
+            HStack {
+                Image(systemName: "magnifyingglass")
+                    .foregroundColor(.gray)
+
+                // 搜索框
+                TextField("搜索", text: $searchText)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(size: 12))
+            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -141,7 +162,7 @@ struct DebugView: View {
 
 /// 单条消息行视图
 private struct MessageRow: View {
-    @StateObject private var debugState = DebugState.shared
+    @EnvironmentObject private var debugState: DebugState
     let message: DebugMessage
 
     var body: some View {

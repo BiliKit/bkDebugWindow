@@ -135,12 +135,52 @@ class DebugState: ObservableObject {
     // MARK: - 初始化方法
 
     private init(maxMessages: Int = 1000) {
+        print("DebugState: Initializing...")
         self.maxMessages = maxMessages
+
+        // 添加初始化信息
+        self.debugMessages.append(DebugMessage(
+            type: .system,
+            content: "DebugState initializing...",
+            details: "maxMessages: \(maxMessages)"
+        ))
+
         self.loadSavedStates()
         self.updateMessageStats()
 
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAppLaunch),
+            name: NSNotification.Name("AppDidFinishLaunching"),
+            object: nil
+        )
+
+        // 记录观察者添加信息
+        self.debugMessages.append(DebugMessage(
+            type: .system,
+            content: "Notification observers registered",
+            details: "AppDidFinishLaunching observer added"
+        ))
+
         DispatchQueue.main.async {
             self.isInitialized = true
+            self.debugMessages.append(DebugMessage(
+                type: .system,
+                content: "DebugState initialization complete",
+                details: "isInitialized: true"
+            ))
+        }
+    }
+
+    @objc private func handleAppLaunch() {
+        self.debugMessages.append(DebugMessage(
+            type: .system,
+            content: "App launch notification received",
+            details: "Current message count: \(debugMessages.count)"
+        ))
+
+        DispatchQueue.main.async {
+            self.reset()
         }
     }
 
@@ -174,8 +214,12 @@ class DebugState: ObservableObject {
 
     /// 添加新的调试消息
     func addMessage(_ content: String, type: DebugMessageType, details: String? = nil) {
+        print("DebugState: Adding message of type \(type)")
         messageQueue.async { [weak self] in
-            guard let self = self else { return }
+            guard let self = self else {
+                print("DebugState: Failed to add message - self is nil")
+                return
+            }
             let message = DebugMessage(type: type, content: content, details: details)
 
             DispatchQueue.main.async {
@@ -184,6 +228,7 @@ class DebugState: ObservableObject {
                     self.debugMessages.removeFirst(self.debugMessages.count - self.maxMessages)
                 }
                 self.updateMessageStats()
+                print("DebugState: Message added successfully")
             }
         }
     }
@@ -231,6 +276,45 @@ class DebugState: ObservableObject {
     func toggleDetails() {
         showDetails.toggle()
         UserDefaults.standard.set(showDetails, forKey: "debug_window_show_details")
+    }
+
+    // MARK: - 重置方法
+
+    // 添加重置方法
+    func reset() {
+        self.debugMessages.append(DebugMessage(
+            type: .system,
+            content: "DebugState reset initiated",
+            details: "Previous message count: \(debugMessages.count)"
+        ))
+
+        DispatchQueue.main.async {
+            self.debugMessages.removeAll()
+            self.updateMessageStats()
+            self.loadSavedStates()
+            self.isInitialized = true
+
+            // 添加重置完成信息
+            self.debugMessages.append(DebugMessage(
+                type: .system,
+                content: "DebugState reset completed",
+                details: """
+                showDetails: \(self.showDetails)
+                autoScroll: \(self.autoScroll)
+                isAttached: \(self.isAttached)
+                isInitialized: \(self.isInitialized)
+                """
+            ))
+        }
+    }
+
+    deinit {
+        self.debugMessages.append(DebugMessage(
+            type: .system,
+            content: "DebugState deinitializing",
+            details: "Final message count: \(debugMessages.count)"
+        ))
+        NotificationCenter.default.removeObserver(self)
     }
 }
 
