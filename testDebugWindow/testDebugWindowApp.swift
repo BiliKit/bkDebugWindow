@@ -47,6 +47,9 @@ class WindowDelegate: NSObject, NSWindowDelegate {
         guard let window = notification.object as? NSWindow else { return }
 
         if isDebugWindow(window) {
+            // 更新 DebugState 中的窗口位置
+            DebugState.shared.updateWindowPosition(window.frame)
+
             guard let mainWindow = self.mainWindow,
                   isUserDraggingDebugWindow else { return }
 
@@ -57,24 +60,14 @@ class WindowDelegate: NSObject, NSWindowDelegate {
             let xDistance = abs(debugFrame.minX - mainFrame.maxX)
             let yDistance = abs(debugFrame.minY - mainFrame.minY)
 
-            // 如果在吸附范围内，立即吸附
-            if xDistance <= snapDistance && yDistance <= snapDistance {
-                let snappedFrame = NSRect(
-                    x: mainFrame.maxX,
-                    y: mainFrame.minY,
-                    width: debugFrame.width,
-                    height: mainFrame.height
-                )
-
-                window.setFrame(snappedFrame, display: true, animate: true)
+            if xDistance <= snapDistance && yDistance <= snapDistance && !DebugState.shared.isAttached {
                 DebugState.shared.isAttached = true
-                window.level = mainWindow.level
             }
         } else {
             // 如果是主窗口移动
             self.mainWindow = window
             if DebugState.shared.isAttached {
-                updateDebugWindowFrame(mainWindow: window, animated: false)
+                updateDebugWindowFrame(mainWindow: window, animated: true)
             }
         }
     }
@@ -207,8 +200,24 @@ class WindowDelegate: NSObject, NSWindowDelegate {
         } else {
             debugWindow.setFrame(debugFrame, display: true)
         }
+
+        // 更新 DebugState 中的窗口位置
+        DebugState.shared.updateWindowPosition(debugFrame)
     }
 
+    // 添加新的方法来处理窗口层级
+    private func updateWindowLevel() {
+        guard let mainWindow = self.mainWindow,
+              let debugWindow = self.debugWindow else { return }
+
+        if DebugState.shared.isAttached {
+            debugWindow.level = mainWindow.level
+        } else {
+            debugWindow.level = .floating
+        }
+    }
+
+    // 修改窗口设置方法
     func setupDebugWindow(with mainWindow: NSWindow) {
         guard let debugWindow = NSApplication.shared.windows.first(where: { $0.identifier?.rawValue == "debug-window" }) else { return }
 
@@ -217,8 +226,10 @@ class WindowDelegate: NSObject, NSWindowDelegate {
 
         // 配置调试窗口
         debugWindow.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        debugWindow.level = mainWindow.level
         debugWindow.isMovable = true
+
+        // 更新窗口层级
+        updateWindowLevel()
 
         // 设置窗口动画属性
         debugWindow.animationBehavior = .documentWindow
@@ -232,6 +243,9 @@ class WindowDelegate: NSObject, NSWindowDelegate {
         // 初始化位置
         if DebugState.shared.isAttached {
             updateDebugWindowFrame(mainWindow: mainWindow, animated: false)
+        } else {
+            // 如果没有吸附，使用 DebugState 中保存的位置
+            debugWindow.setFrame(DebugState.shared.windowFrame, display: true)
         }
 
         DebugState.shared.isWindowOpen = true
