@@ -144,22 +144,15 @@ struct DebugView: View {
                             withAnimation {
                                 debugState.showDetails = newValue
                             }
-                            // 保存状态到 UserDefaults
+                            // 只保存显示详情的状态
                             UserDefaults.standard.set(newValue, forKey: "debug_window_show_details")
                         }
                     ))
                     .toggleStyle(.switch)
 
                     // 添加吸附按钮
-                    Toggle("吸附", isOn: Binding(
-                        get: { debugState.isAttached },
-                        set: { newValue in
-                            withAnimation {
-                                debugState.isAttached = newValue
-                            }
-                        }
-                    ))
-                    .toggleStyle(.switch)
+                    Toggle("吸附", isOn: $debugState.isAttached)
+                        .toggleStyle(.switch)
 
                     Button(action: {
                         debugState.clearMessages()
