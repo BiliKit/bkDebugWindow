@@ -29,6 +29,9 @@ class WindowDelegate: NSObject, NSWindowDelegate {
         self.dismissWindow = dismiss
     }
 
+    // 添加标志来区分是否是程序控制的移动
+    private var isProgrammaticMove = false
+
     // MARK: - Window Delegate Methods
 
     func windowDidResize(_ notification: Notification) {
@@ -51,11 +54,11 @@ class WindowDelegate: NSObject, NSWindowDelegate {
         guard let window = notification.object as? NSWindow else { return }
 
         if isDebugWindow(window) {
-            DebugState.shared.system("Debug window moved",
+            debugState.system("Debug window moved",
                 details: """
                 Position: \(window.frame.origin)
                 Is dragging: \(isUserDraggingDebugWindow)
-                Is attached: \(DebugState.shared.isAttached)
+                Is attached: \(debugState.isAttached)
                 """)
 
             if isUserDraggingDebugWindow {
@@ -65,7 +68,7 @@ class WindowDelegate: NSObject, NSWindowDelegate {
                 let xDistance = abs(debugFrame.minX - mainFrame.maxX)
                 let yDistance = abs(debugFrame.minY - mainFrame.minY)
 
-                DebugState.shared.system("Checking snap distance",
+                debugState.system("Checking snap distance",
                     details: """
                     X distance: \(xDistance)
                     Y distance: \(yDistance)
@@ -73,26 +76,60 @@ class WindowDelegate: NSObject, NSWindowDelegate {
                     """)
 
                 if xDistance <= snapDistance && yDistance <= snapDistance {
-                    DebugState.shared.isAttached = true
-                    updateDebugWindowFrame()
+                    isProgrammaticMove = true
+                    debugState.isAttached = true
+
+                    // 先重置窗口位置
+                    resetDebugWindow()
+
+                    // 确保设置子窗口关系
+                    if let mainWindow = self.mainWindow {
+                        makeDebugWindowChild(of: mainWindow)
+                    }
+
+                    debugState.system("Window snapped and child relationship established")
                 }
             }
         } else {
-            DebugState.shared.system("Main window moved",
+            debugState.system("Main window moved",
                 details: "New position: \(window.frame.origin)")
-            handleMainWindowMove()
+
+            // 如果调试窗口已吸附，更新其位置
+            if debugState.isAttached {
+                // 确保是主窗口移动而不是程序控制的移动
+                if !isProgrammaticMove {
+                    if let debugWindow = debugWindow {
+                        // 如果不是子窗口，需要手动更新位置
+                        if debugWindow.parent == nil {
+                            updateDebugWindowFrame()
+                        }
+                    }
+                }
+            }
         }
+
+        // 更新窗口位置状态
+        debugState.updateWindowState(
+            position: window.frame.origin,
+            size: window.frame.size
+        )
     }
 
     func windowWillMove(_ notification: Notification) {
         guard let window = notification.object as? NSWindow,
               isDebugWindow(window) else { return }
 
+        // 如果是程序控制的移动，不处理
+        if isProgrammaticMove {
+            return
+        }
+
         isUserDraggingDebugWindow = true
         debugState.system("Debug window will move",
             details: """
             Current position: \(window.frame.origin)
             Previous attach state: \(debugState.isAttached)
+            Is programmatic: \(isProgrammaticMove)
             """)
 
         // 更新拖拽状态监视
@@ -104,6 +141,7 @@ class WindowDelegate: NSObject, NSWindowDelegate {
 
         if debugState.isAttached {
             debugState.isAttached = false
+            mainWindow?.removeChildWindow(window)
         }
     }
 
@@ -136,6 +174,16 @@ class WindowDelegate: NSObject, NSWindowDelegate {
             value: false,
             type: "Window"
         )
+    }
+
+    // 修改 windowDidEndLiveResize 方法
+    func windowDidEndLiveResize(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow,
+              isDebugWindow(window) else { return }
+
+        isUserDraggingDebugWindow = false
+        debugState.system("Debug window ended resize",
+            details: "Final size: \(window.frame.size)")
     }
 
     // MARK: - Setup Methods
@@ -194,36 +242,23 @@ class WindowDelegate: NSObject, NSWindowDelegate {
 
     private func updateDebugWindowFrame() {
         guard let mainWindow = mainWindow,
-              let debugWindow = debugWindow,
-              let screen = mainWindow.screen else {
-            DebugState.shared.error("Failed to update debug window frame",
-                details: """
-                Main window: \(String(describing: mainWindow))
-                Debug window: \(String(describing: debugWindow))
-                Screen: \(String(describing: mainWindow?.screen))
-                """)
+              let debugWindow = debugWindow else { return }
+
+        // 如果已经是子窗口，不需要手动更新位置
+        if debugWindow.parent != nil {
             return
         }
 
-        let mainFrame = mainWindow.frame
-        let debugWidth = debugWindow.frame.width
-        let newX = min(mainFrame.maxX, screen.visibleFrame.maxX - debugWidth)
-        let newFrame = NSRect(
-            x: newX,
-            y: mainFrame.minY,
-            width: debugWidth,
-            height: mainFrame.height
-        )
+        let targetFrame = calculateDebugWindowFrame(mainWindow: mainWindow, debugWindow: debugWindow)
 
-        DebugState.shared.system("Updating debug window frame",
-            details: """
-            Previous frame: \(debugWindow.frame)
-            New frame: \(newFrame)
-            Screen visible frame: \(screen.visibleFrame)
-            """)
-
-        debugWindow.setFrame(newFrame, display: true)
-        debugWindow.level = mainWindow.level
+        // 使用动画器来更新位置
+        windowAnimator = WindowAnimator(window: debugWindow)
+        windowAnimator?.animate(to: targetFrame) { [weak self] in
+            guard let self = self else { return }
+            if self.debugState.isAttached {
+                self.makeDebugWindowChild(of: mainWindow)
+            }
+        }
     }
 
     // MARK: - 辅助方法
@@ -236,7 +271,7 @@ class WindowDelegate: NSObject, NSWindowDelegate {
     /// 处理主窗口移动
     private func handleMainWindowMove() {
         debugState.system("Handling main window move")
-        if DebugState.shared.isAttached {
+        if debugState.isAttached && debugWindow?.parent == nil {
             updateDebugWindowFrame()
         }
     }
@@ -259,7 +294,7 @@ class WindowDelegate: NSObject, NSWindowDelegate {
         }
         observers.append(mainWindowMoveObserver)
 
-        // 观察主窗口大小变化
+        // 修改 windowDidEndLiveResize 方法中的观察者
         let mainWindowResizeObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.didResizeNotification,
             object: mainWindow,
@@ -287,19 +322,27 @@ class WindowDelegate: NSObject, NSWindowDelegate {
     func makeDebugWindowChild(of mainWindow: NSWindow) {
         guard let debugWindow = debugWindow else { return }
 
-        // 移除之前的 child window (如果有)
+        debugState.system("Making debug window child")
+
+        // 先更新位置，再设置子窗口关系
+        let targetFrame = calculateDebugWindowFrame(mainWindow: mainWindow, debugWindow: debugWindow)
+        debugWindow.setFrame(targetFrame, display: true)
+
+        // 移除之前的子窗口关系
         mainWindow.removeChildWindow(debugWindow)
 
-        // 设置为 child window
+        // 设置为子窗口
         mainWindow.addChildWindow(debugWindow, ordered: .above)
 
-        // 更新窗口位置
-        updateDebugWindowFrame()
+        // 确保更新状态
+        debugState.isAttached = true
 
         debugState.system("Debug window set as child window",
             details: """
             Parent window: \(mainWindow)
             Child window: \(debugWindow)
+            Frame: \(debugWindow.frame)
+            Is child window: \(debugWindow.parent != nil)
             """)
     }
 
@@ -324,6 +367,64 @@ class WindowDelegate: NSObject, NSWindowDelegate {
                         self.makeDebugWindowChild(of: mainWindow)
                     }
                 }
+            }
+        }
+    }
+
+    // 添加新方法用于计算目标位置
+    private func calculateDebugWindowFrame(mainWindow: NSWindow, debugWindow: NSWindow) -> NSRect {
+        let mainFrame = mainWindow.frame
+        let debugWidth = debugWindow.frame.width
+        let screen = mainWindow.screen ?? NSScreen.main ?? NSScreen.screens.first!
+
+        // 确保不会超出屏幕
+        let newX = min(mainFrame.maxX, screen.visibleFrame.maxX - debugWidth)
+
+        return NSRect(
+            x: newX,
+            y: mainFrame.minY,
+            width: debugWidth,
+            height: mainFrame.height
+        )
+    }
+
+    private var windowAnimator: WindowAnimator?
+
+    // 修改 resetDebugWindow 方法
+    func resetDebugWindow() {
+        guard let mainWindow = mainWindow,
+              let debugWindow = debugWindow else {
+            debugState.error("Failed to reset: windows not available")
+            return
+        }
+
+        debugState.system("Reset debug window initiated")
+
+        // 设置为程序控制的移动
+        isProgrammaticMove = true
+
+        // 确保移除子窗口关系以便动画
+        mainWindow.removeChildWindow(debugWindow)
+
+        // 计算目标位置
+        let targetFrame = calculateDebugWindowFrame(mainWindow: mainWindow, debugWindow: debugWindow)
+
+        // 创建动画器并执行动画
+        windowAnimator = WindowAnimator(window: debugWindow)
+        windowAnimator?.animate(to: targetFrame) { [weak self] in
+            guard let self = self else { return }
+
+            // 动画完成后的处理
+            DispatchQueue.main.async {
+                self.isProgrammaticMove = false  // 重置标志
+                self.debugState.isAttached = true
+
+                // 确保设置子窗口关系
+                if self.debugState.isAttached {
+                    self.makeDebugWindowChild(of: mainWindow)
+                }
+
+                self.debugState.system("Animation completed and child window relationship established")
             }
         }
     }

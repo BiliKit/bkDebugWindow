@@ -99,10 +99,6 @@ struct DebugView: View {
                 ))
                 .toggleStyle(.switch)
 
-                // 吸附开关
-                Toggle("吸附", isOn: $debugState.isAttached)
-                    .toggleStyle(.switch)
-
                 // 清除按钮
                 Button(action: {
                     debugState.clearMessages()
@@ -116,6 +112,16 @@ struct DebugView: View {
                 // 添加监视面板开关
                 Toggle("监视", isOn: $showWatchPanel)
                     .toggleStyle(.switch)
+
+                // 添加复位按钮
+                Button(action: {
+                    resetDebugWindow()
+                }) {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                        .foregroundColor(.blue)
+                }
+                .buttonStyle(.plain)
+                .help("复位调试窗口")
 
                 Spacer()
             }
@@ -470,6 +476,12 @@ struct FlowLayout: Layout {
             self.height = y
         }
     }
+}
+
+// 添加复位方法
+private func resetDebugWindow() {
+    guard let appDelegate = NSApplication.shared.delegate as? AppDelegate else { return }
+    appDelegate.windowDelegate.resetDebugWindow()
 }
 
 #Preview {

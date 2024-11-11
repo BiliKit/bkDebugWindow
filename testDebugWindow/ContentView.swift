@@ -332,7 +332,7 @@ extension ContentView {
         }
 
         notificationCenter.addObserver(forName: NSWindow.didMoveNotification, object: nil, queue: nil) { notification in
-            debugState.addMessage("主窗口移动: \(String(describing: notification.object))", type: .info)
+            debugState.addMessage("窗口移动: \(String(describing: notification.object))", type: .info)
         }
     }
 }
