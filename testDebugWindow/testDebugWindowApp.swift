@@ -89,14 +89,21 @@ class WindowDelegate: NSObject, NSWindowDelegate {
               isDebugWindow(window) else { return }
 
         isUserDraggingDebugWindow = true
-        DebugState.shared.system("Debug window will move",
+        debugState.system("Debug window will move",
             details: """
             Current position: \(window.frame.origin)
-            Previous attach state: \(DebugState.shared.isAttached)
+            Previous attach state: \(debugState.isAttached)
             """)
 
-        if DebugState.shared.isAttached {
-            DebugState.shared.isAttached = false
+        // 更新拖拽状态监视
+        debugState.updateWatchVariable(
+            name: "isDragging",
+            value: true,
+            type: "Window"
+        )
+
+        if debugState.isAttached {
+            debugState.isAttached = false
         }
     }
 
@@ -117,11 +124,18 @@ class WindowDelegate: NSObject, NSWindowDelegate {
               isDebugWindow(window) else { return }
 
         isUserDraggingDebugWindow = false
-        DebugState.shared.system("Debug window ended move",
+        debugState.system("Debug window ended move",
             details: """
             Final position: \(window.frame.origin)
-            Is attached: \(DebugState.shared.isAttached)
+            Is attached: \(debugState.isAttached)
             """)
+
+        // 更新拖拽状态监视
+        debugState.updateWatchVariable(
+            name: "isDragging",
+            value: false,
+            type: "Window"
+        )
     }
 
     // MARK: - Setup Methods

@@ -90,10 +90,45 @@ struct ContentView: View {
     private func setupInitialState() {
         #if DEBUG
         debugState.addMessage("主窗口已加载", type: .info)
-        // 确保按钮状态与窗口状态同步
-        debugState.isWindowOpen = NSApplication.shared.windows.contains {
-            $0.identifier?.rawValue == "debug-window" && $0.isVisible
-        }
+
+        // 基础状态监视
+        debugState.updateWatchVariable(
+            name: "counter",
+            value: counter,
+            type: "Int"
+        )
+        debugState.updateWatchVariable(
+            name: "isAutoGeneratingLogs",
+            value: isAutoGeneratingLogs,
+            type: "Bool"
+        )
+
+        // 窗口状态监视
+        debugState.updateWatchVariable(
+            name: "activeWindow",
+            value: NSApplication.shared.mainWindow?.title ?? "none",
+            type: "Window"
+        )
+        debugState.updateWatchVariable(
+            name: "isAttached",
+            value: debugState.isAttached,
+            type: "Window"
+        )
+        debugState.updateWatchVariable(
+            name: "isDragging",
+            value: (NSApplication.shared.delegate as? AppDelegate)?.windowDelegate.isUserDraggingDebugWindow ?? false,
+            type: "Window"
+        )
+        debugState.updateWatchVariable(
+            name: "isWindowOpen",
+            value: debugState.isWindowOpen,
+            type: "Window"
+        )
+
+        // 添加窗口状态观察者
+        observeActiveWindow()
+        observeAttachState()
+        observeDraggingState()
         #endif
     }
 
@@ -105,6 +140,12 @@ struct ContentView: View {
             "计数器增加到: \(counter)",
             type: .userAction,
             details: "Button tapped at \(Date())"
+        )
+        // 更新监视变量
+        debugState.updateWatchVariable(
+            name: "counter",
+            value: counter,
+            type: "Int"
         )
         #endif
     }
@@ -142,6 +183,31 @@ struct ContentView: View {
         // 结束事件
         debugState.addMessage("这是一条信息信息", type: .info)
 
+        // 添加系统信息
+        let processInfo = ProcessInfo.processInfo
+        debugState.addMessage(
+            "系统资源使用情况",
+            type: .system,
+            details: """
+            处理器数量: \(processInfo.processorCount)
+            活动处理器数量: \(processInfo.activeProcessorCount)
+            物理内存: \(String(format: "%.1f GB", Double(processInfo.physicalMemory) / 1024.0 / 1024.0 / 1024.0))
+            系统启动时间: \(processInfo.systemUptime)s
+            热量状态: \(processInfo.thermalState.rawValue)
+            """
+        )
+
+        // 添加应用信息
+        let bundle = Bundle.main
+        debugState.addMessage(
+            "应用信息",
+            type: .info,
+            details: """
+            名称: \(bundle.object(forInfoDictionaryKey: "CFBundleName") as? String ?? "Unknown")
+            版本: \(bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Unknown")
+            构建版本: \(bundle.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "Unknown")
+            """
+        )
         #endif
     }
 
@@ -153,14 +219,16 @@ struct ContentView: View {
         } else {
             openWindow(id: "debug-window")
             debugState.isWindowOpen = true
-            // 给窗口一点时间创建
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                if let appDelegate = NSApplication.shared.delegate as? AppDelegate,
-                   let mainWindow = NSApplication.shared.windows.first(where: { !($0.identifier?.rawValue == "debug-window") }) {
-                    appDelegate.windowDelegate.setupDebugWindow(with: mainWindow)
-                }
-            }
         }
+
+        #if DEBUG
+        // 更新窗口状态监视
+        debugState.updateWatchVariable(
+            name: "isWindowOpen",
+            value: debugState.isWindowOpen,
+            type: "Bool"
+        )
+        #endif
     }
 
     /// 开始自动生成日志
@@ -175,12 +243,83 @@ struct ContentView: View {
                 details: "Generated at \(Date())"
             )
         }
+
+        isAutoGeneratingLogs = true
+        #if DEBUG
+        // 更新监视变量
+        debugState.updateWatchVariable(
+            name: "isAutoGeneratingLogs",
+            value: isAutoGeneratingLogs,
+            type: "Bool"
+        )
+        #endif
     }
 
     /// 停止自动生成日志
     private func stopAutoGenerateLogs() {
         timer?.invalidate()
         timer = nil
+        isAutoGeneratingLogs = false
+        #if DEBUG
+        // 更新监视变量
+        debugState.updateWatchVariable(
+            name: "isAutoGeneratingLogs",
+            value: isAutoGeneratingLogs,
+            type: "Bool"
+        )
+        #endif
+    }
+
+    /// 观察当前激活的窗口
+    private func observeActiveWindow() {
+        NotificationCenter.default.addObserver(
+            forName: NSWindow.didBecomeKeyNotification,
+            object: nil,
+            queue: .main
+        ) { notification in
+            if let window = notification.object as? NSWindow {
+                debugState.updateWatchVariable(
+                    name: "activeWindow",
+                    value: window.title,
+                    type: "Window"
+                )
+            }
+        }
+    }
+
+    // 添加拖拽状态观察方法
+    private func observeDraggingState() {
+        let debugState = self.debugState // 捕获 debugState
+
+        NotificationCenter.default.addObserver(
+            forName: NSWindow.willMoveNotification,
+            object: nil,
+            queue: .main
+        ) { notification in
+            if let window = notification.object as? NSWindow,
+               window.identifier?.rawValue == "debug-window" {
+                debugState.updateWatchVariable(
+                    name: "isDragging",
+                    value: true,
+                    type: "Window"
+                )
+            }
+        }
+
+        NotificationCenter.default.addObserver(
+            forName: NSWindow.didMoveNotification,
+            object: nil,
+            queue: .main
+        ) { notification in
+            if let window = notification.object as? NSWindow,
+               window.identifier?.rawValue == "debug-window" {
+                debugState.updateWatchVariable(
+                    name: "isDragging",
+                    value: false,
+                    type: "Window"
+                )
+            }
+        }
     }
 }
 
@@ -189,11 +328,31 @@ extension ContentView {
     func setupWindowChangeObserver() {
         let notificationCenter = NotificationCenter.default
         notificationCenter.addObserver(forName: NSWindow.didChangeOcclusionStateNotification, object: nil, queue: nil) { notification in
-            debugState.addMessage("主窗口状态改变: \(String(describing: notification.object))", type: .info)
+            debugState.addMessage("主窗口状态改变", type: .info, details: "\(notification.object)")
         }
 
         notificationCenter.addObserver(forName: NSWindow.didMoveNotification, object: nil, queue: nil) { notification in
             debugState.addMessage("主窗口移动: \(String(describing: notification.object))", type: .info)
+        }
+    }
+}
+
+// 添加对窗口吸附状态的监听
+extension ContentView {
+    private func observeAttachState() {
+        let debugState = self.debugState // 捕获 debugState
+
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("DebugWindowAttachStateChanged"),
+            object: nil,
+            queue: .main
+        ) { notification in
+            guard let isAttached = notification.userInfo?["isAttached"] as? Bool else { return }
+            debugState.updateWatchVariable(
+                name: "isAttached",
+                value: isAttached,
+                type: "Window"
+            )
         }
     }
 }

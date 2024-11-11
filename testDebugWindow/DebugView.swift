@@ -9,6 +9,7 @@ struct DebugView: View {
     @ObservedObject var debugState: DebugState = .shared
     /// 搜索文本
     @State private var searchText = ""
+    @State private var showWatchPanel: Bool = true // 添加控制监视面板显示的状态
 
     /// 过滤后的消息列表
     private var filteredMessages: [DebugMessage] {
@@ -30,7 +31,21 @@ struct DebugView: View {
             VStack(spacing: 0) {
                 toolbarView
                 Divider()
-                messageListView
+
+                // 使用 GeometryReader 来管理布局
+                GeometryReader { geometry in
+                    VSplitView {
+                        // 消息列表
+                        messageListView
+                            .frame(maxHeight: .infinity)
+
+                        // 变量监视面板
+                        if showWatchPanel {
+                            watchPanelView
+                                .frame(minHeight: 60, maxHeight: 120)
+                        }
+                    }
+                }
             }
         }
         .frame(minWidth: 350, minHeight: 300)
@@ -98,6 +113,10 @@ struct DebugView: View {
                 .buttonStyle(.plain)
                 .help("清除所有消息")
 
+                // 添加监视面板开关
+                Toggle("监视", isOn: $showWatchPanel)
+                    .toggleStyle(.switch)
+
                 Spacer()
             }
 
@@ -159,6 +178,60 @@ struct DebugView: View {
             }
         }
     }
+
+    // 添加变量监视面板视图
+    private var watchPanelView: some View {
+        VStack(spacing: 0) {
+            // 监视面板头部
+            HStack {
+                HStack(spacing: 4) {
+                    Image(systemName: "gauge")
+                        .font(.system(size: 11))
+                    Text("变量监视")
+                        .font(.system(size: 11, weight: .medium))
+                }
+                .foregroundColor(.secondary)
+
+                Spacer()
+
+                Button(action: {
+                    debugState.clearWatchVariables()
+                }) {
+                    Image(systemName: "trash")
+                        .font(.system(size: 9))
+                        .foregroundColor(.gray)
+                }
+                .buttonStyle(.plain)
+                .help("清除所有监视变量")
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 2)
+
+            Divider()
+
+            // 修改变量列表布局
+            if debugState.watchVariables.isEmpty {
+                VStack {
+                    Text("暂无监视变量")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                }
+                .frame(height: 30)
+            } else {
+                ScrollView(.vertical, showsIndicators: true) {
+                    FlowLayout(spacing: 4) {
+                        ForEach(debugState.watchVariables) { variable in
+                            WatchVariableRow(variable: variable)
+                                .fixedSize()
+                        }
+                    }
+                    .padding(4)
+                }
+            }
+        }
+        .background(Color(NSColor.windowBackgroundColor))
+        .frame(minHeight: 60, maxHeight: 120)
+    }
 }
 
 /// 单条消息行视图
@@ -204,6 +277,77 @@ private struct MessageRow: View {
     }
 }
 
+/// 添加监视变量行视图
+struct WatchVariableRow: View {
+    let variable: WatchVariable
+    @ObservedObject var debugState: DebugState = .shared
+
+    // 根据变量类型和值获取显示颜色
+    private var valueColor: Color {
+        // 处理布尔值
+        if variable.value == "true" {
+            return .green
+        } else if variable.value == "false" {
+            return .red
+        }
+
+        // 根据变量类型设置颜色
+        switch variable.type {
+        case "Int", "Double", "Float":  // 数字类型
+            return .blue
+        case "String":                  // 字符串类型
+            return .orange
+        case "Window":                  // 窗口相关状态
+            return .purple
+        case "Bool":                    // 布尔值（非 true/false 的情况）
+            return .gray
+        default:                        // 其他类型
+            return .primary
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 4) {
+            // 变量名和值
+            HStack(spacing: 4) {
+                Text(variable.name)
+                    .font(.system(size: 11, design: .rounded))
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+
+                Text("=")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+
+                Text(variable.value)
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundColor(valueColor)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 4)
+
+            // 删除按钮
+            Button(action: {
+                debugState.removeWatchVariable(name: variable.name)
+            }) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 8))
+                    .foregroundColor(.gray)
+            }
+            .buttonStyle(.plain)
+            .opacity(0.6)
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 1)
+        .background(
+            Capsule()
+                .fill(Color.primary.opacity(0.06))
+        )
+        .frame(height: 16)
+    }
+}
+
 /// 窗口拖动处理器
 struct WindowDragHandler: NSViewRepresentable {
     @ObservedObject var debugState: DebugState = .shared
@@ -245,6 +389,85 @@ extension DebugView {
         notificationCenter.addObserver(forName: NSWindow.didBecomeKeyNotification, object: nil, queue: nil) { notification in
             guard let window = notification.object as? NSWindow else { return }
             debugState.addMessage("调试信息窗口已激活", type: .info, details: "窗口激活: \(window.title)")
+        }
+    }
+}
+
+// 添加 FlowLayout 视图来实现流式布局
+struct FlowLayout: Layout {
+    /// 元素之间的间距
+    var spacing: CGFloat = 4
+
+    /// 计算布局大小
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let result = FlowResult(in: proposal.width ?? 0, spacing: spacing, subviews: subviews)
+        return CGSize(width: proposal.width ?? 0, height: result.height)
+    }
+
+    /// 放置子视图
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let result = FlowResult(in: bounds.width, spacing: spacing, subviews: subviews)
+
+        // 遍历每一行放置子视图
+        for row in result.rows {
+            for item in row {
+                let x = bounds.minX + item.x
+                let y = bounds.minY + item.y
+                item.subview.place(
+                    at: CGPoint(x: x, y: y),
+                    proposal: ProposedViewSize(item.size)
+                )
+            }
+        }
+    }
+
+    /// 流式布局结果结构
+    struct FlowResult {
+        /// 所有行
+        var rows: [[Item]] = []
+        /// 总高度
+        var height: CGFloat = 0
+
+        /// 布局项结构
+        struct Item {
+            let subview: LayoutSubview
+            var size: CGSize
+            var x: CGFloat
+            var y: CGFloat
+        }
+
+        /// 初始化并计算布局
+        init(in width: CGFloat, spacing: CGFloat, subviews: LayoutSubviews) {
+            var currentRow: [Item] = []
+            var x: CGFloat = 0
+            var y: CGFloat = 0
+            var maxHeight: CGFloat = 0
+
+            // 遍历所有子视图计算位置
+            for subview in subviews {
+                let size = subview.sizeThatFits(.unspecified)
+
+                // 如果当前行放不下，开始新行
+                if x + size.width > width && !currentRow.isEmpty {
+                    rows.append(currentRow)
+                    currentRow = []
+                    x = 0
+                    y += maxHeight + spacing
+                    maxHeight = 0
+                }
+
+                currentRow.append(Item(subview: subview, size: size, x: x, y: y))
+                x += size.width + spacing
+                maxHeight = max(maxHeight, size.height)
+            }
+
+            // 处理最后一行
+            if !currentRow.isEmpty {
+                rows.append(currentRow)
+                y += maxHeight
+            }
+
+            self.height = y
         }
     }
 }

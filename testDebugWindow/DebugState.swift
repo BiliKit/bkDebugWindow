@@ -133,6 +133,8 @@ class DebugState: ObservableObject {
     @Published private(set) var debugMessages: [DebugMessage] = []
     /// 消息统计信息
     @Published private(set) var messageStats: [DebugMessageType: Int] = [:]
+    /// 监视变量数组
+    @Published private(set) var watchVariables: [WatchVariable] = []
 
     // MARK: - 私有属性
 
@@ -327,6 +329,61 @@ class DebugState: ObservableObject {
         ))
         NotificationCenter.default.removeObserver(self)
     }
+
+    // 添加更新监视变量的方法
+    func updateWatchVariable(name: String, value: Any, type: String) {
+        DispatchQueue.main.async {
+            if let index = self.watchVariables.firstIndex(where: { $0.name == name }) {
+                self.watchVariables[index] = WatchVariable(
+                    name: name,
+                    value: String(describing: value),
+                    type: type
+                )
+            } else {
+                self.watchVariables.append(WatchVariable(
+                    name: name,
+                    value: String(describing: value),
+                    type: type
+                ))
+            }
+        }
+    }
+
+    // 清除监视变量
+    func clearWatchVariables() {
+        watchVariables.removeAll()
+    }
+
+    // 移除特定监视变量
+    func removeWatchVariable(name: String) {
+        watchVariables.removeAll { $0.name == name }
+    }
+
+    // 添加一个方法来注册可观察变量
+    func registerWatchable(_ variable: WatchableVariable) {
+        updateWatchVariable(
+            name: variable.name,
+            value: variable.valueString,
+            type: variable.type
+        )
+
+        // 添加观察者
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleWatchableChange(_:)),
+            name: .watchableVariableDidChange,
+            object: variable
+        )
+    }
+
+    @objc private func handleWatchableChange(_ notification: Notification) {
+        guard let variable = notification.object as? WatchableVariable else { return }
+        updateWatchVariable(
+            name: variable.name,
+            value: variable.valueString,
+            type: variable.type
+        )
+    }
 }
 
 // MARK: - 便利方法扩展
@@ -365,4 +422,63 @@ extension DebugState {
     func performance(_ message: String, details: String? = nil) {
         addMessage(message, type: .performance, details: details)
     }
+}
+
+// 添加一个用于存储监视变量的结构体
+struct WatchVariable: Identifiable, Hashable {
+    let id = UUID()
+    let name: String
+    var value: String
+    let type: String
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+
+    static func == (lhs: WatchVariable, rhs: WatchVariable) -> Bool {
+        lhs.id == rhs.id
+    }
+}
+
+// 添加一个用于存储监视变量的协议
+protocol WatchableVariable {
+    var name: String { get }
+    var type: String { get }
+    var valueString: String { get }
+}
+
+// 添加一个泛型包装器来观察变量
+@propertyWrapper
+class Watchable<T>: WatchableVariable {
+    private var value: T
+    let name: String
+    let type: String
+
+    var wrappedValue: T {
+        get { value }
+        set {
+            value = newValue
+            // 当值改变时通知 DebugState
+            NotificationCenter.default.post(
+                name: .watchableVariableDidChange,
+                object: self
+            )
+        }
+    }
+
+    var projectedValue: Watchable<T> { self }
+
+    init(wrappedValue: T, name: String, type: String) {
+        self.value = wrappedValue
+        self.name = name
+        self.type = type
+    }
+
+    var valueString: String {
+        String(describing: value)
+    }
+}
+
+extension Notification.Name {
+    static let watchableVariableDidChange = Notification.Name("watchableVariableDidChange")
 }
