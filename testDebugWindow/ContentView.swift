@@ -17,7 +17,7 @@ struct ContentView: View {
     @Environment(\.openWindow) private var openWindow
     @Environment(\.dismissWindow) private var dismissWindow
     /// 调试状态对象
-    @StateObject private var debugState = DebugState.shared
+    @ObservedObject var debugState: DebugState = .shared
 
     // MARK: - 计时器相关
     @State private var timer: Timer?
@@ -42,6 +42,7 @@ struct ContentView: View {
         .padding()
         .onAppear {
             setupInitialState()
+            setupWindowChangeObserver()
         }
         .onDisappear {
             stopAutoGenerateLogs()
@@ -131,6 +132,16 @@ struct ContentView: View {
             type: .system,
             details: "Theme: Dark, Language: zh-CN"
         )
+
+        // 结束事件
+        debugState.addMessage("这是一条错误信息", type: .error)
+
+        // 结束事件
+        debugState.addMessage("这是一条警告信息", type: .warning)
+
+        // 结束事件
+        debugState.addMessage("这是一条信息信息", type: .info)
+
         #endif
     }
 
@@ -170,6 +181,20 @@ struct ContentView: View {
     private func stopAutoGenerateLogs() {
         timer?.invalidate()
         timer = nil
+    }
+}
+
+extension ContentView {
+    /// 设置主窗口状态监听
+    func setupWindowChangeObserver() {
+        let notificationCenter = NotificationCenter.default
+        notificationCenter.addObserver(forName: NSWindow.didChangeOcclusionStateNotification, object: nil, queue: nil) { notification in
+            debugState.addMessage("主窗口状态改变: \(String(describing: notification.object))", type: .info)
+        }
+
+        notificationCenter.addObserver(forName: NSWindow.didMoveNotification, object: nil, queue: nil) { notification in
+            debugState.addMessage("主窗口移动: \(String(describing: notification.object))", type: .info)
+        }
     }
 }
 

@@ -6,7 +6,7 @@ struct DebugView: View {
     // MARK: - 属性
 
     /// 调试状态对象
-    @EnvironmentObject private var debugState: DebugState
+    @ObservedObject var debugState: DebugState = .shared
     /// 搜索文本
     @State private var searchText = ""
 
@@ -39,7 +39,8 @@ struct DebugView: View {
             WindowConfig.configureDebugWindow()
         }
         .onAppear {
-            print("DebugView: Appeared")
+            debugState.addMessage("DebugView: Appeared", type: .info)
+            setupWindowChangeObserver()
         }
         .onDisappear {
             print("DebugView: Disappeared")
@@ -162,7 +163,7 @@ struct DebugView: View {
 
 /// 单条消息行视图
 private struct MessageRow: View {
-    @EnvironmentObject private var debugState: DebugState
+    @ObservedObject var debugState: DebugState = .shared
     let message: DebugMessage
 
     var body: some View {
@@ -205,17 +206,47 @@ private struct MessageRow: View {
 
 /// 窗口拖动处理器
 struct WindowDragHandler: NSViewRepresentable {
+    @ObservedObject var debugState: DebugState = .shared
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
         DispatchQueue.main.async {
             guard let window = view.window else { return }
             window.isMovableByWindowBackground = true
             window.backgroundColor = .windowBackgroundColor
+            // debugState.addMessage("窗口背景色已设置为 \(String(describing: window.backgroundColor))", type: .info)
         }
         return view
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {}
+}
+
+extension DebugView {
+    func setupWindowChangeObserver() {
+        let notificationCenter = NotificationCenter.default
+
+        notificationCenter.addObserver(forName: NSWindow.didChangeOcclusionStateNotification, object: nil, queue: nil) { notification in
+            guard let window = notification.object as? NSWindow else { return }
+            debugState.addMessage("调试信息窗口状态已改变: \(window.occlusionState.rawValue)", type: .info, details: "窗口状态: \(window.occlusionState.rawValue)")
+        }
+
+        notificationCenter.addObserver(forName: NSWindow.didResizeNotification, object: nil, queue: nil) { notification in
+            debugState.addMessage("调试信息窗口大小改变", type: .info, details: "窗口大小: \(String(describing: notification.object))")
+        }
+
+        notificationCenter.addObserver(forName: NSWindow.willMoveNotification, object: nil, queue: nil) { notification in
+            debugState.addMessage("调试信息窗口即将移动", type: .info, details: "窗口移动: \(String(describing: notification.object))")
+        }
+
+        notificationCenter.addObserver(forName: NSWindow.didMoveNotification, object: nil, queue: nil) { notification in
+            debugState.addMessage("调试信息窗口已移动", type: .info, details: "窗口移动: \(String(describing: notification.object))")
+        }
+
+        notificationCenter.addObserver(forName: NSWindow.didBecomeKeyNotification, object: nil, queue: nil) { notification in
+            guard let window = notification.object as? NSWindow else { return }
+            debugState.addMessage("调试信息窗口已激活", type: .info, details: "窗口激活: \(window.title)")
+        }
+    }
 }
 
 #Preview {

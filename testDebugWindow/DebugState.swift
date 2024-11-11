@@ -104,6 +104,17 @@ class DebugState: ObservableObject {
                 print("Debug: Attach state changed to \(isAttached)")
                 notifyAttachStateChange()
                 saveAttachState()
+
+                // 处理 child window 关系
+                if let appDelegate = NSApplication.shared.delegate as? AppDelegate,
+                   let mainWindow = appDelegate.windowDelegate.mainWindow,
+                   let debugWindow = appDelegate.windowDelegate.debugWindow {
+                    if isAttached {
+                        appDelegate.windowDelegate.makeDebugWindowChild(of: mainWindow)
+                    } else {
+                        mainWindow.removeChildWindow(debugWindow)
+                    }
+                }
             }
         }
     }
