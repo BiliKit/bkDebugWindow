@@ -76,6 +76,7 @@ struct DebugMessage: Identifiable, Hashable {
     var formattedMessage: String {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "HH:mm:ss.SSS"
+
         return "[\(dateFormatter.string(from: timestamp))][\(threadName)][\(type.rawValue)] \(content)"
     }
 
@@ -104,17 +105,6 @@ class DebugState: ObservableObject {
                 print("Debug: Attach state changed to \(isAttached)")
                 notifyAttachStateChange()
                 saveAttachState()
-
-                // 处理 child window 关系
-                if let appDelegate = NSApplication.shared.delegate as? AppDelegate,
-                   let mainWindow = appDelegate.windowDelegate.mainWindow,
-                   let debugWindow = appDelegate.windowDelegate.debugWindow {
-                    if isAttached {
-                        appDelegate.windowDelegate.makeDebugWindowChild(of: mainWindow)
-                    } else {
-                        mainWindow.removeChildWindow(debugWindow)
-                    }
-                }
             }
         }
     }
@@ -146,7 +136,16 @@ class DebugState: ObservableObject {
     }
 
     // 添加窗口状态属性
-    @Published private(set) var windowState = WindowState()
+    @Published private(set) var windowState = WindowState() {
+        didSet {
+            updateWatchVariable(name: "windowState", value: windowState, type: "String")
+            debugMessages.append(DebugMessage(
+                type: .system,
+                content: "windowState updated",
+                details: "windowState: \(windowState)"
+            ))
+        }
+    }
 
     // MARK: - 私有属性
 
@@ -160,7 +159,6 @@ class DebugState: ObservableObject {
     // MARK: - 初始化方法
 
     private init(maxMessages: Int = 1000) {
-        print("DebugState: Initializing...")
         self.maxMessages = maxMessages
 
         // 添加初始化信息
@@ -172,21 +170,6 @@ class DebugState: ObservableObject {
 
         self.loadSavedStates()
         self.updateMessageStats()
-
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handleAppLaunch),
-            name: NSNotification.Name("AppDidFinishLaunching"),
-            object: nil
-        )
-
-        // 记录观察者添加信息
-        self.debugMessages.append(DebugMessage(
-            type: .system,
-            content: "Notification observers registered",
-            details: "AppDidFinishLaunching observer added"
-        ))
-
         DispatchQueue.main.async {
             self.isInitialized = true
             self.debugMessages.append(DebugMessage(
@@ -194,18 +177,6 @@ class DebugState: ObservableObject {
                 content: "DebugState initialization complete",
                 details: "isInitialized: true"
             ))
-        }
-    }
-
-    @objc private func handleAppLaunch() {
-        self.debugMessages.append(DebugMessage(
-            type: .system,
-            content: "App launch notification received",
-            details: "Current message count: \(debugMessages.count)"
-        ))
-
-        DispatchQueue.main.async {
-            self.reset()
         }
     }
 
@@ -344,17 +315,28 @@ class DebugState: ObservableObject {
 
     // 添加更新监视变量的方法
     func updateWatchVariable(name: String, value: Any, type: String) {
-        DispatchQueue.main.async {
+        guard !name.isEmpty else {
+            self.error("Failed to update watch variable: Empty name")
+            return
+        }
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+
+            let stringValue = String(describing: value)
             if let index = self.watchVariables.firstIndex(where: { $0.name == name }) {
+                // 更新现有变量
+                let oldValue = self.watchVariables[index].value
                 self.watchVariables[index] = WatchVariable(
                     name: name,
-                    value: String(describing: value),
+                    value: stringValue,
                     type: type
                 )
             } else {
+                // 添加新变量
                 self.watchVariables.append(WatchVariable(
                     name: name,
-                    value: String(describing: value),
+                    value: stringValue,
                     type: type
                 ))
             }
@@ -397,7 +379,7 @@ class DebugState: ObservableObject {
         )
     }
 
-    // 添加更��窗口状态的方法
+    // 添加更窗口状态的方法
     func updateWindowState(
         position: NSPoint? = nil,
         size: NSSize? = nil,
