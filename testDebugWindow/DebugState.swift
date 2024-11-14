@@ -164,7 +164,7 @@ class DebugState: ObservableObject {
         // 添加初始化信息
         self.debugMessages.append(DebugMessage(
             type: .system,
-            content: "DebugState initializing...",
+            content: "正在初始化debugState...",
             details: "maxMessages: \(maxMessages)"
         ))
 
@@ -174,8 +174,8 @@ class DebugState: ObservableObject {
             self.isInitialized = true
             self.debugMessages.append(DebugMessage(
                 type: .system,
-                content: "DebugState initialization complete",
-                details: "isInitialized: true"
+                content: "初始化debugState完成",
+                details: "isInitialized: \(self.isInitialized)"
             ))
         }
     }

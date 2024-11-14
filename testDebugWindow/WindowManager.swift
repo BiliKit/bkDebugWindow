@@ -5,25 +5,18 @@ import Combine
 class WindowManager: ObservableObject {
     static let shared = WindowManager()
 
+    // 确保单例
+    private init() {}
+
     let debugWindowName = "debugWindow"
 
-    @Published var observers: [NSObjectProtocol] = []
+    var activeWindow: NSWindow?
 
-    // debug window 在哪一侧
-    var debugWindowSide: Side = .right {
-        didSet {
-            DebugState.shared.updateWatchVariable(name: "debugWindowSide", value: debugWindowSide.rawValue, type: "String")
-        }
-    }
-
-    enum Side: String {
-        case left = "左侧"
-        case right = "右侧"
-    }
-
-    // 窗口尺寸配置
+    // 默认主窗口尺寸
     let defaultMainWindowWidth: CGFloat = 400
     let defaultMainWindowHeight: CGFloat = 600
+
+    // 默认调试窗口尺寸
     let defaultDebugWindowWidth: CGFloat = 350
 
     // 吸附配置
@@ -31,9 +24,22 @@ class WindowManager: ObservableObject {
     let snapDistanceInside: CGFloat = 290    // 内部吸附距离
     let dragStartThreshold: CGFloat = 0      // 拖动开始阈值
 
-    var activeWindow: NSWindow?
+    /// 开始拖动的位置
+    var dragStartLocation: NSPoint?          // 替代 initialClickLocation
+    /// 开始拖动前的状态
+    var stateBeforeDrag: WindowState?        // 替代 initialState
 
-    /// 目标窗口位置
+    /// 所有观察者
+    @Published var observers: [NSObjectProtocol] = []
+
+    /// debug window 贴合方向
+    @Published var debugWindowSide: Side = .right {
+        didSet {
+            DebugState.shared.updateWatchVariable(name: "debugWindowSide", value: debugWindowSide.rawValue, type: "String")
+        }
+    }
+
+    /// 期望的窗口位置
     @Published var targetFrame: NSRect = .zero {
         didSet {
             DebugState.shared.updateWatchVariable(name: "targetFrameX", value: targetFrame.origin.x, type: "Int")
@@ -41,8 +47,13 @@ class WindowManager: ObservableObject {
         }
     }
 
-    /// 目标窗口高度
-    @Published var targetPosition: CGPoint = .zero
+    /// 期望的坐标点
+    @Published var targetPosition: CGPoint = .zero {
+        didSet {
+            DebugState.shared.updateWatchVariable(name: "targetPositionX", value: targetPosition.x, type: "Int")
+            DebugState.shared.updateWatchVariable(name: "targetPositionY", value: targetPosition.y, type: "Int")
+        }
+    }
 
     /// 是否需要更新窗口位置
     @Published var needUpdate = false {
@@ -54,17 +65,21 @@ class WindowManager: ObservableObject {
     /// 最后一次更新时间
     @Published var lastUpdate: Date = .init()
 
-    // 状态追踪
+    /// 窗口动画模式
     @Published var windowMode: WindowMode = .direct {
         didSet {
             DebugState.shared.updateWatchVariable(name: "windowMode", value: windowMode.rawValue, type: "String")
         }
     }
+
+    /// 是否准备好吸附
     @Published var isReadyToSnap = false {
         didSet {
             DebugState.shared.updateWatchVariable(name: "isReadyToSnap", value: isReadyToSnap, type: "Bool")
         }
     }
+
+    /// 窗口状态: 已吸附、已分离、拖拽中
     @Published var windowState: WindowState = .attached {
         didSet {
             DebugState.shared.updateWatchVariable(name: "windowState", value: windowState.rawValue, type: "String")
@@ -75,39 +90,46 @@ class WindowManager: ObservableObject {
     var debugWindow: NSWindow?
     var mainWindow: NSWindow?
 
-    // 拖动状态追踪
-    var dragStartLocation: NSPoint?          // 替代 initialClickLocation
-    var stateBeforeDrag: WindowState?        // 替代 initialState
+}
 
-    private init() {} // 确保单例
+// MARK: - 枚举类
+extension WindowManager{
 
-    // 辅助方法
-    func isWindowsOverlapping(_ frame1: NSRect, _ frame2: NSRect) -> Bool {
-        return frame1.intersects(frame2)
-    }
-
-    func getEffectiveSnapDistance(for frame1: NSRect, and frame2: NSRect) -> CGFloat {
-        return isWindowsOverlapping(frame1, frame2) ? snapDistanceInside : snapDistanceOutside
-    }
-
-    func isValueBetween(_ value: CGFloat, min: CGFloat, max: CGFloat) -> Bool {
-        return value >= min && value <= max
-    }
-
-    // 窗口状态枚举
+    /// 窗口状态枚举
     enum WindowState: String {
         case attached = "已吸附"
         case detached = "已分离"
         case dragging = "拖拽中"
     }
 
+    /// 窗口动画模式枚举
     enum WindowMode: String {
         case animation = "动画"
         case direct = "直接"
     }
 
-    // 窗口吸附动画方法
-    func snapDebugWindowToMain() {  // 替代 animateWindowSnap
+    /// debug window 贴合方向枚举
+    enum Side: String {
+        case left = "左侧"
+        case right = "右侧"
+    }
+}
+
+// MARK: - 辅助方法
+extension WindowManager {
+
+    /// 判断两个窗口是否重叠
+    func isWindowsOverlapping(_ frame1: NSRect, _ frame2: NSRect) -> Bool {
+        return frame1.intersects(frame2)
+    }
+
+    /// 获取有效的吸附距离
+    func getEffectiveSnapDistance(for frame1: NSRect, and frame2: NSRect) -> CGFloat {
+        return isWindowsOverlapping(frame1, frame2) ? snapDistanceInside : snapDistanceOutside
+    }
+
+    /// 吸附动画方法
+    func snapDebugWindowToMain() {
         let windows = NSApplication.shared.windows
         guard let currentWindow = windows.first(where: { $0.title == "debugWindow" }),
               let mainWindow = windows.first(where: { $0.title != "debugWindow" }) else { return }
@@ -124,11 +146,13 @@ class WindowManager: ObservableObject {
             newFrame.origin.x = mainWindow.frame.minX - currentFrame.width - 1
             newFrame.origin.y = mainWindow.frame.minY
             newFrame.size.height = mainWindow.frame.size.height
+            debugWindowSide = .left
         } else {
             // 当前窗口在右边，贴合到目标窗口的右边
             newFrame.origin.x = mainWindow.frame.maxX + 1
             newFrame.origin.y = mainWindow.frame.minY
             newFrame.size.height = mainWindow.frame.size.height
+            debugWindowSide = .right
         }
 
         // 动画1
@@ -152,10 +176,8 @@ class WindowManager: ObservableObject {
         // animation.toValue = NSValue(rect: newFrame)
         // animation.duration = 0.45
         // animation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-
         // currentWindow.animations = ["frame": animation]
         // currentWindow.animator().setFrame(newFrame, display: true)
-
         // DispatchQueue.main.asyncAfter(deadline: .now() + animation.duration) {
         //     mainWindow.addChildWindow(currentWindow, ordered: .above)
         //     DebugState.shared.addMessage("吸附完成", type: .info)
@@ -168,7 +190,6 @@ class WindowManager: ObservableObject {
         //     controlPoints: 0.5, 1.8, 0.585, 0.885
         // )
         // context.allowsImplicitAnimation = true
-
         // currentWindow.animator().setFrame(newFrame, display: true, animate: true)
         // }, completionHandler: {
         //     mainWindow.addChildWindow(currentWindow, ordered: .above)
@@ -182,7 +203,6 @@ class WindowManager: ObservableObject {
         //     width: currentFrame.width,
         //     height: currentFrame.height
         // )
-
         // NSAnimationContext.runAnimationGroup({ context in
         //     context.duration = 0.25
         //     context.timingFunction = CAMediaTimingFunction(name: .easeOut)
@@ -199,10 +219,10 @@ class WindowManager: ObservableObject {
         //     })
         // })
 
-        // 设置状态
         windowState = .attached
     }
 }
+
 
 //class WindowManager1 {
 //    // MARK: - Properties

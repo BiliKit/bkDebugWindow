@@ -47,6 +47,7 @@ struct debugView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(minWidth: 300)
         .background(VisualEffectView().ignoresSafeArea())
         .allowsHitTesting(true)
         .onAppear {
@@ -56,6 +57,9 @@ struct debugView: View {
             debugState.updateWatchVariable(name: "isReadyToSnap", value: manager.isReadyToSnap, type: "Bool")
             debugState.updateWatchVariable(name: "windowState", value: manager.windowState.rawValue, type: "String")
             debugState.updateWatchVariable(name: "windowMode", value: manager.windowMode.rawValue, type: "String")
+            debugState.updateWatchVariable(name: "debugWindowSide", value: manager.debugWindowSide.rawValue, type: "String")
+            debugState.updateWatchVariable(name: "targetFrameX", value: manager.targetFrame.origin.x, type: "Int")
+            debugState.updateWatchVariable(name: "targetFrameY", value: manager.targetFrame.origin.y, type: "Int")
         }
         .onDisappear {
             // 发送重置通知
@@ -402,13 +406,13 @@ extension debugView {
                 .padding(.vertical, 8)
             }
             // 自动滚动到最新消息
-            .onChange(of: debugState.debugMessages.count) { oldValue, newValue in
-                if let lastMessage = filteredMessages.last {
-                    withAnimation {
-                        proxy.scrollTo(lastMessage.id, anchor: .bottom)
-                    }
-                }
-            }
+            // .onChange(of: debugState.debugMessages.count) { oldValue, newValue in
+            //     if let lastMessage = filteredMessages.last {
+            //         withAnimation {
+            //             proxy.scrollTo(lastMessage.id, anchor: .bottom)
+            //         }
+            //     }
+            // }
         }
     }
 }
