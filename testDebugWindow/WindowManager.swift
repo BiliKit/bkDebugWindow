@@ -7,6 +7,20 @@ class WindowManager: ObservableObject {
 
     let debugWindowName = "debugWindow"
 
+    @Published var observers: [NSObjectProtocol] = []
+
+    // debug window 在哪一侧
+    var debugWindowSide: Side = .right {
+        didSet {
+            DebugState.shared.updateWatchVariable(name: "debugWindowSide", value: debugWindowSide.rawValue, type: "String")
+        }
+    }
+
+    enum Side: String {
+        case left = "左侧"
+        case right = "右侧"
+    }
+
     // 窗口尺寸配置
     let defaultMainWindowWidth: CGFloat = 400
     let defaultMainWindowHeight: CGFloat = 600
@@ -16,6 +30,8 @@ class WindowManager: ObservableObject {
     let snapDistanceOutside: CGFloat = 70    // 外部吸附距离
     let snapDistanceInside: CGFloat = 290    // 内部吸附距离
     let dragStartThreshold: CGFloat = 0      // 拖动开始阈值
+
+    var activeWindow: NSWindow?
 
     /// 目标窗口位置
     @Published var targetFrame: NSRect = .zero {
@@ -125,7 +141,9 @@ class WindowManager: ObservableObject {
         }, completionHandler: {
             // 动画完成后设置为子窗口
             mainWindow.addChildWindow(currentWindow, ordered: .above)
+            #if DEVELOPMENT
             DebugState.shared.addMessage("吸附完成", type: .info)
+            #endif
         })
 
         // 动画2：使用 Core Animation 显式动画

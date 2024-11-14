@@ -58,6 +58,7 @@ struct MainWindowView: View {
                 Button("测试信息") {
                     // 添加应用信息
                     let bundle = Bundle.main
+                    #if DEVELOPMENT
                     debugState.addMessage(
                         "应用信息",
                         type: .info,
@@ -67,19 +68,7 @@ struct MainWindowView: View {
                         构建版本: \(bundle.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "Unknown")
                         """
                     )
-                    // 添加系统信息
-                        let processInfo = ProcessInfo.processInfo
-                        debugState.addMessage(
-                            "系统资源使用情况",
-                            type: .system,
-                            details: """
-                            处理器数量: \(processInfo.processorCount)
-                            活动处理器数量: \(processInfo.activeProcessorCount)
-                            物理内存: \(String(format: "%.1f GB", Double(processInfo.physicalMemory) / 1024.0 / 1024.0 / 1024.0))
-                            系统启动时间: \(processInfo.systemUptime)s
-                            热量状态: \(processInfo.thermalState.rawValue)
-                            """
-                        )
+                    #endif
                 }
                 .buttonStyle(MainWindowButtonStyle(color: .red))
             }
@@ -102,7 +91,7 @@ extension MainWindowView {
     /// 增加计数器
     private func incrementCounter() {
         counter += 1
-        #if DEBUG
+        #if DEVELOPMENT
         debugState.addMessage(
             "计数器增加到: \(counter)",
             type: .userAction,

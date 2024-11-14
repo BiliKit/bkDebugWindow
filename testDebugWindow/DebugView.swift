@@ -22,31 +22,37 @@ struct debugView: View {
             //     startPoint: .topLeading,
             //     endPoint: .bottomTrailing
             // )
-            VStack(spacing: 0) {
-                toolbarView
-                Divider()
-                // infoView
-
-                VSplitView {
-                    messageListView
-                        .layoutPriority(1)
-                    watchPanelView
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(
             // LinearGradient(
             //     gradient: Gradient(colors: [Color(hex: "2C3E50"), Color(hex: "3498DB")]),
             //     startPoint: .topLeading,
             //     endPoint: .bottomTrailing
             // )
-            VisualEffectView()
-                .ignoresSafeArea()
-        )
-        .allowsHitTesting(true)  // 确保整个视图可以接收点击事件
+            VStack(spacing: 0) {
+                toolbarView
+                Divider()
+
+                // 修改这部分布局
+                GeometryReader { geometry in
+                    VSplitView {
+                        // 消息列表视图，设置最小高度
+                        messageListView
+                            .frame(maxHeight: .infinity)
+                            .layoutPriority(1)
+
+                        // 监视面板视图，设置固定高度范围
+                        watchPanelView
+                            .frame(minHeight: 60, maxHeight: 120)
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(VisualEffectView().ignoresSafeArea())
+        .allowsHitTesting(true)
         .onAppear {
+            #if DEVELOPMENT
             debugState.addMessage("调试窗口已显示", type: .info)
+            #endif
             debugState.updateWatchVariable(name: "isReadyToSnap", value: manager.isReadyToSnap, type: "Bool")
             debugState.updateWatchVariable(name: "windowState", value: manager.windowState.rawValue, type: "String")
             debugState.updateWatchVariable(name: "windowMode", value: manager.windowMode.rawValue, type: "String")
@@ -59,16 +65,6 @@ struct debugView: View {
             )
         }
     }
-}
-
-struct VisualEffectView: NSViewRepresentable {
-    func makeNSView(context _: Context) -> NSVisualEffectView {
-        let effectView = NSVisualEffectView()
-        effectView.state = .active
-        return effectView
-    }
-
-    func updateNSView(_: NSVisualEffectView, context _: Context) {}
 }
 
 /// 单条消息行视图
@@ -99,17 +95,19 @@ struct MessageRow: View {
             // 详细信息部分 - 仅在启用详情显示时可见
             if let details = message.details {
                 if debugState.showDetails {
-                    Text(details)
-                        .font(.system(size: 11, design: .monospaced))
-                        .foregroundColor(.gray)
-                        .padding(.leading, 20) // 与消息文本对齐
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .textSelection(.enabled)
-                        // 添加展开/收起动画
-                        .transition(.asymmetric(
-                            insertion: .move(edge: .top).combined(with: .opacity),
-                            removal: .move(edge: .bottom).combined(with: .opacity)
-                        ))
+                    HStack {
+                        Text(details)
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundColor(.gray)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .textSelection(.enabled)
+                            // 添加展开/收起动画
+                            .transition(.asymmetric(
+                                insertion: .move(edge: .top).combined(with: .opacity),
+                                removal: .move(edge: .bottom).combined(with: .opacity)
+                            ))
+                    }
+                    .padding(.leading, 20) // 在 HStack 上设置 padding
                 }
             }
         }
@@ -319,10 +317,11 @@ extension debugView {
                         .font(.system(size: 11))
                         .foregroundColor(.secondary)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
             } else {
                 // 变量列表
-                ScrollView(.vertical, showsIndicators: false) { // 禁用滚动条
+                ScrollView(.vertical, showsIndicators: false) {
                     FlowLayout(spacing: 4) {
                         ForEach(debugState.watchVariables) { variable in
                             WatchVariableRow(variable: variable)
@@ -333,7 +332,6 @@ extension debugView {
                 }
             }
         }
-        .frame(minHeight: 60, maxHeight: 120) // 限制面板高度
         .background(Color.clear)
     }
 }
@@ -357,7 +355,7 @@ extension debugView {
         VStack(alignment: .leading, spacing: 12) {
             statusRow(title: "窗口 ID:", value: windowId)
             statusRow(title: "状态:", value: manager.windowState.rawValue)
-            statusRow(title: "模式:", value: manager.windowMode.rawValue)
+            statusRow(title: "式:", value: manager.windowMode.rawValue)
         }
         .padding()
         .background(
@@ -426,6 +424,7 @@ extension debugView {
                 .font(.system(size: 13))
             Spacer()
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -434,65 +433,94 @@ extension debugView {
     private var toolbarView: some View {
         VStack(spacing: 8) {
             // 第一行
-            HStack(spacing: 12) {
-                // 类型选择器
-                Picker("类型", selection: $debugState.selectedMessageType) {
-                    Text("全部").tag(Optional<DebugMessageType>.none)
-                    ForEach(DebugMessageType.allCases, id: \.self) { type in
-                        HStack {
-                            Image(systemName: type.icon)
-                            Text(type.rawValue)
-                        }
-                        .tag(Optional<DebugMessageType>.some(type))
-                    }
-                }
-                .frame(width: 100)
-
-                // 详情显示开关
-                Toggle("详情", isOn: Binding(
-                    get: { debugState.showDetails },
-                    set: { newValue in
-                        withAnimation {
-                            debugState.showDetails = newValue
-                        }
-                        UserDefaults.standard.set(newValue, forKey: "debug_window_show_details")
-                    }
-                ))
-                .toggleStyle(.switch)
-
-                // 清除按钮
-                Button(action: {
-                    debugState.clearMessages()
-                }) {
-                    Image(systemName: "trash")
-                        .foregroundColor(.gray)
-                }
-                .buttonStyle(.plain)
-                .help("清除所有消息")
-
-                // 添加监视面板开关
-                // Toggle("监视", isOn: $showWatchPanel)
-                //     .toggleStyle(.switch)
-
-                // 添加复位按钮
+            HStack(spacing: 8) {
+                // 复位按钮
                 Button(action: {
                     manager.snapDebugWindowToMain()
+                    NSApp.stopModal()  // 确保在点击时停止模态状态
                 }) {
                     Image(systemName: "arrow.left.to.line")
-                        .foregroundColor(.blue)
+                        .symbolRenderingMode(.hierarchical)
+                        .padding(.vertical, 2.5)
                 }
-                .buttonStyle(.plain)
+                .allowsHitTesting(true)
+                .onTapGesture {
+                    manager.snapDebugWindowToMain()
+                    NSApp.stopModal()
+                }
+                .buttonStyle(CapsuleButtonStyle())
                 .help("复位调试窗口")
+
+                // 消息类型选择器
+                Menu {
+                    Button(action: { debugState.selectedMessageType = nil }) {
+                        HStack {
+                            Image(systemName: "text.line.first.and.arrowtriangle.forward")
+                            Text("全部")
+                            if debugState.selectedMessageType == nil {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+
+                    Divider()
+
+                    ForEach(DebugMessageType.allCases, id: \.self) { type in
+                        Button(action: { debugState.selectedMessageType = type }) {
+                            HStack {
+                                Image(systemName: type.icon)
+                                    .foregroundColor(type.color)
+                                Text(type.rawValue)
+                                Spacer()
+                                if debugState.selectedMessageType == type {
+                                    Image(systemName: "checkmark")
+                                }
+                            }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: debugState.selectedMessageType?.icon ?? "text.line.first.and.arrowtriangle.forward")
+                            .foregroundColor(debugState.selectedMessageType?.color ?? .primary)
+                        Text(debugState.selectedMessageType?.rawValue ?? "全部")
+                            .font(.system(size: 12))
+                    }
+                }
+                .buttonStyle(CapsuleButtonStyle())
+                .help("筛选消息类型")
+
+                // 详情显示开关
+                Button(action: {
+                    withAnimation {
+                        debugState.showDetails.toggle()
+                    }
+                    UserDefaults.standard.set(debugState.showDetails, forKey: "debug_window_show_details")
+                }) {
+                    Image(systemName: debugState.showDetails ? "info.circle.fill" : "info.circle")
+//                        .symbolRenderingMode(.hierarchical)
+                    .padding(.horizontal,0.5)
+                        .foregroundStyle(debugState.showDetails ? .blue : .secondary)
+                }
+                .buttonStyle(CapsuleButtonStyle())
+                .help("显示/隐藏详情")
+
+                // 清除按钮
+                Button(action: { debugState.clearMessages() }) {
+                    Image(systemName: "trash")
+                }
+                .buttonStyle(CapsuleButtonStyle())
+                .help("清除所有消息")
 
                 // 模式切换按钮
                 Button {
-                    // 直接切换模式
                     withAnimation {
                         manager.windowMode = manager.windowMode == .animation ? .direct : .animation
                     }
                 } label: {
-                    Text("\(manager.windowMode == .animation ? "动画" : "直接")")
+                    Image(systemName: manager.windowMode == .animation ? "sparkles" : "bolt.fill")
                 }
+                .buttonStyle(CapsuleButtonStyle())
+                .help(manager.windowMode == .animation ? "动画模式" : "直接模式")
 
                 Spacer()
             }
@@ -506,11 +534,35 @@ extension debugView {
                 TextField("搜索", text: $searchText)
                     .textFieldStyle(.roundedBorder)
                     .font(.system(size: 12))
+                    .allowsHitTesting(true)
+                    .simultaneousGesture(TapGesture().onEnded { _ in
+                        NSApp.stopModal()
+                    })
             }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         // .background(Color(NSColor.windowBackgroundColor))
         .background(Color.clear)
+    }
+}
+
+// 添加自定义胶囊按钮样式
+struct CapsuleButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 12))
+            .padding(.horizontal, 12)
+            .padding(.vertical,6)
+            .frame(maxHeight: 28)
+            .frame(height: 28)
+            .background(
+                Capsule()
+                    .fill(Color.primary.opacity(configuration.isPressed ? 0.15 : 0.1))
+            )
+            .foregroundColor(.primary)
+            .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
+            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
+            .contentShape(Capsule())
     }
 }
