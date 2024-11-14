@@ -96,7 +96,8 @@ class DebugState: ObservableObject {
     /// 单例实例
     static let shared = DebugState()
 
-    // MARK: - 发布的属性
+    /// 是否显示监视面板
+    @Published var showWatchPanel: Bool = true
 
     /// 窗口吸附状态
     @Published var isAttached: Bool = false {

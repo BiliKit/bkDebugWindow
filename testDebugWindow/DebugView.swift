@@ -2,15 +2,11 @@ import SwiftUI
 import AppKit
 import QuartzCore
 import Combine
-import SpringInterpolation
 
 struct debugView: View {
     let windowId: String
     @ObservedObject var manager = WindowManager.shared
     @ObservedObject var debugState: DebugState = .shared
-
-    /// 搜索文本
-    @State private var searchText = ""
 
     var body: some View {
         ZStack{
@@ -40,19 +36,21 @@ struct debugView: View {
                             .layoutPriority(1)
 
                         // 监视面板视图，设置固定高度范围
-                        watchPanelView
-                            .frame(minHeight: 60, maxHeight: 120)
+                        if debugState.showWatchPanel {
+                            watchPanelView
+                                .frame(minHeight: 60, maxHeight: 120)
+                        }
                     }
                 }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .frame(minWidth: 300)
+        .frame(minWidth: 350)
         .background(VisualEffectView().ignoresSafeArea())
         .allowsHitTesting(true)
         .onAppear {
             #if DEVELOPMENT
-            debugState.addMessage("调试窗口已显示", type: .info)
+            debugState.info("调试窗口已显示")
             #endif
             debugState.updateWatchVariable(name: "isReadyToSnap", value: manager.isReadyToSnap, type: "Bool")
             debugState.updateWatchVariable(name: "windowState", value: manager.windowState.rawValue, type: "String")
@@ -345,10 +343,10 @@ extension debugView{
     /// 过滤后的消息列表
     private var filteredMessages: [DebugMessage] {
         let messages = debugState.filteredMessages()
-        if searchText.isEmpty {
+        if debugState.searchText.isEmpty {
             return messages
         }
-        return messages.filter { $0.content.localizedCaseInsensitiveContains(searchText) }
+        return messages.filter { $0.content.localizedCaseInsensitiveContains(debugState.searchText) }
     }
 }
 
@@ -466,9 +464,7 @@ extension debugView {
                             }
                         }
                     }
-
                     Divider()
-
                     ForEach(DebugMessageType.allCases, id: \.self) { type in
                         Button(action: { debugState.selectedMessageType = type }) {
                             HStack {
@@ -488,8 +484,13 @@ extension debugView {
                             .foregroundColor(debugState.selectedMessageType?.color ?? .primary)
                         Text(debugState.selectedMessageType?.rawValue ?? "全部")
                             .font(.system(size: 12))
+                            .contentTransition(.opacity)
+                            .transaction { transaction in
+                                transaction.animation = .easeInOut(duration: 0.2).delay(0.1)
+                            }
                     }
                 }
+                .animation(.spring(duration: 0.3), value: debugState.selectedMessageType)
                 .buttonStyle(CapsuleButtonStyle())
                 .help("筛选消息类型")
 
@@ -526,6 +527,17 @@ extension debugView {
                 .buttonStyle(CapsuleButtonStyle())
                 .help(manager.windowMode == .animation ? "动画模式" : "直接模式")
 
+                // 监视面板开关
+                Button(action: {
+                    withAnimation {
+                        debugState.showWatchPanel.toggle()
+                    }
+                }) {
+                    Image(systemName: debugState.showWatchPanel ? "eye.slash" : "eye")
+                }
+                .buttonStyle(CapsuleButtonStyle())
+                .help("显示/隐藏监视面板")
+
                 Spacer()
             }
 
@@ -535,7 +547,7 @@ extension debugView {
                     .foregroundColor(.gray)
 
                 // 搜索框
-                TextField("搜索", text: $searchText)
+                TextField("搜索", text: $debugState.searchText)
                     .textFieldStyle(.roundedBorder)
                     .font(.system(size: 12))
                     .allowsHitTesting(true)

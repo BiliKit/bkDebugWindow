@@ -59,9 +59,8 @@ struct MainWindowView: View {
                     // 添加应用信息
                     let bundle = Bundle.main
                     #if DEVELOPMENT
-                    debugState.addMessage(
+                    debugState.info(
                         "应用信息",
-                        type: .info,
                         details: """
                         名称: \(bundle.object(forInfoDictionaryKey: "CFBundleName") as? String ?? "Unknown")
                         版本: \(bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Unknown")
@@ -92,9 +91,8 @@ extension MainWindowView {
     private func incrementCounter() {
         counter += 1
         #if DEVELOPMENT
-        debugState.addMessage(
+        debugState.userAction(
             "计数器增加到: \(counter)",
-            type: .userAction,
             details: "Button tapped at \(Date()) \(#file) \(#function) \(#line)"
         )
         #endif

@@ -25,9 +25,18 @@ class WindowManager: ObservableObject {
     let dragStartThreshold: CGFloat = 0      // 拖动开始阈值
 
     /// 开始拖动的位置
-    var dragStartLocation: NSPoint?          // 替代 initialClickLocation
+    var dragStartLocation: NSPoint? {
+        didSet {
+            DebugState.shared.updateWatchVariable(name: "dragStartLocationX", value: dragStartLocation?.x ?? 0, type: "Int")
+            DebugState.shared.updateWatchVariable(name: "dragStartLocationY", value: dragStartLocation?.y ?? 0, type: "Int")
+        }
+    }
     /// 开始拖动前的状态
-    var stateBeforeDrag: WindowState?        // 替代 initialState
+    var stateBeforeDrag: WindowState? {
+        didSet {
+            DebugState.shared.updateWatchVariable(name: "stateBeforeDrag", value: stateBeforeDrag?.rawValue ?? "unknown", type: "String")
+        }
+    }
 
     /// 所有观察者
     @Published var observers: [NSObjectProtocol] = []
@@ -166,7 +175,7 @@ extension WindowManager {
             // 动画完成后设置为子窗口
             mainWindow.addChildWindow(currentWindow, ordered: .above)
             #if DEVELOPMENT
-            DebugState.shared.addMessage("吸附完成", type: .info)
+            DebugState.shared.system("吸附完成")
             #endif
         })
 
