@@ -15,53 +15,54 @@ struct debugView: View {
     @StateObject private var keyboardManager = KeyboardShortcutManager.shared
 
     var body: some View {
-        ZStack{
-            // 背景色
-            // Color(NSColor.windowBackgroundColor)
-            //     .ignoresSafeArea()
-            // LinearGradient(
-            //     gradient: Gradient(colors: [Color.purple, Color.blue]),
-            //     startPoint: .topLeading,
-            //     endPoint: .bottomTrailing
-            // )
-            // LinearGradient(
-            //     gradient: Gradient(colors: [Color(hex: "2C3E50"), Color(hex: "3498DB")]),
-            //     startPoint: .topLeading,
-            //     endPoint: .bottomTrailing
-            // )
-            themeManager.currentTheme.backgroundColor
-                .ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                toolbarView
-                    .frame(maxWidth: .infinity)
-                    .background(themeManager.currentTheme.toolbarColor)
-                Divider()
+        // 背景色
+        // Color(NSColor.windowBackgroundColor)
+        //     .ignoresSafeArea()
+        // LinearGradient(
+        //     gradient: Gradient(colors: [Color.purple, Color.blue]),
+        //     startPoint: .topLeading,
+        //     endPoint: .bottomTrailing
+        // )
+        // LinearGradient(
+        //     gradient: Gradient(colors: [Color(hex: "2C3E50"), Color(hex: "3498DB")]),
+        //     startPoint: .topLeading,
+        //     endPoint: .bottomTrailing
+        // )
+        // themeManager.currentTheme.backgroundColor
+        //     .ignoresSafeArea()
 
-                // 主要内容区域
-                GeometryReader { geometry in
-                    VSplitView {
-                        // 消息列表视图，设置最小高度
-                        messageListView
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .background(themeManager.currentTheme.backgroundColor)
+        VStack(spacing: 0) {
+            toolbarView
+                .frame(maxWidth: .infinity)
+                .background(themeManager.currentTheme.toolbarColor)
+            Divider()
 
-                        // 监视面板视图，设置固定高度范围
-                        if debugState.showWatchPanel {
-                            watchPanelView
-                                .frame(maxWidth: .infinity, minHeight: 60, maxHeight: 120)
-                        }
+            // 主要内容区域
+            GeometryReader { geometry in
+                VSplitView {
+                    // 消息列表视图，设置最小高度
+                    messageListView
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(themeManager.currentTheme.backgroundColor)
 
-                        // 性能监控面板
-                        performancePanel
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .frame(maxWidth: .infinity)
-                            .background(themeManager.currentTheme.toolbarColor)
+                    // 监视面板视图，设置固定高度范围
+                    if debugState.showWatchPanel {
+                        watchPanelView
+                            .frame(maxWidth: .infinity, minHeight: 60, maxHeight: 120)
                     }
+
+                    // 性能监控面板
+                    performancePanel
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .frame(maxWidth: .infinity)
+                        .frame(maxHeight: 23)
+                        .background(themeManager.currentTheme.toolbarColor)
                 }
             }
         }
+
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .frame(minWidth: 350)
         .background(VisualEffectView().ignoresSafeArea())
@@ -94,7 +95,7 @@ struct debugView: View {
     }
 }
 
-/// 单条消息行视图
+// MARK: - 单条消息行视图
 struct MessageRow: View {
     @ObservedObject var debugState: DebugState = .shared
     let message: DebugMessage
@@ -160,7 +161,7 @@ struct MessageRow: View {
     }
 }
 
-/// 添加监视变量行视图
+// MARK: - 添加监视变量行视图
 struct WatchVariableRow: View {
     let variable: WatchVariable
     @ObservedObject var debugState: DebugState = .shared
@@ -251,7 +252,7 @@ private struct WatchVariableView: View {
     }
 }
 
-/// 流式布局视图
+// MARK: - 流式布局视图
 struct FlowLayout: Layout {
     /// 元素之间的间距
     var spacing: CGFloat = 4
@@ -330,7 +331,7 @@ struct FlowLayout: Layout {
     }
 }
 
-/// 变量监视面板视图
+// MARK: - 变量监视面板视图
 extension debugView {
     /// 变量监视面板视图
     // private var watchPanelView: some View {
@@ -390,7 +391,7 @@ extension debugView {
     // }
 }
 
-// 消息过滤函数
+// MARK: - 消息过滤函数
 extension debugView{
     /// 过滤后的消息列表
     private var filteredMessages: [DebugMessage] {
@@ -402,7 +403,7 @@ extension debugView{
     }
 }
 
-// 消息列表视图
+// MARK: - 消息列表视图
 extension debugView {
     /// 消息列表视图 - 根据是否有消息显示不同内容
     private var messageListView: some View {
@@ -440,7 +441,7 @@ extension debugView {
     }
 }
 
-// 空消息视图
+// MARK: - 空消息视图
 extension debugView {
     /// 空状态视图
     private var emptyStateView: some View {
@@ -454,7 +455,7 @@ extension debugView {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
-
+// MARK: - 工具栏视图
 extension debugView {
     /// 工具栏视图
     private var toolbarView: some View {
@@ -471,10 +472,10 @@ extension debugView {
                         .padding(.vertical, 2.5)
                 }
                 .allowsHitTesting(true)
-                .onTapGesture {
-                    manager.snapDebugWindowToMain()
+                .simultaneousGesture(TapGesture().onEnded { _ in
+                    // 阻止事件传递
                     NSApp.stopModal()
-                }
+                })
                 .buttonStyle(CapsuleButtonStyle())
                 .help("复位调试窗口")
 
@@ -594,28 +595,9 @@ extension debugView {
     }
 }
 
-// 添加自定义胶囊按钮样式
-struct CapsuleButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 12))
-            .padding(.horizontal, 12)
-            .padding(.vertical,6)
-            .frame(maxHeight: 28)
-            .frame(height: 28)
-            .background(
-                Capsule()
-                    .fill(Color.primary.opacity(configuration.isPressed ? 0.15 : 0.1))
-            )
-            .foregroundColor(.primary)
-            .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
-            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
-            .contentShape(Capsule())
-    }
-}
-
+// MARK: - 性能指标视图组件
 extension debugView{
-    // 性能指标视图组件
+    /// 性能指标视图组件
     private struct PerformanceMetricView: View {
         let title: String
         let value: String
@@ -632,7 +614,7 @@ extension debugView{
         }
     }
 
-    // 性能监控面板
+    /// 性能监控面板
     private var performancePanel: some View {
         HStack(spacing: 16) {
             PerformanceMetricView(
@@ -653,8 +635,11 @@ extension debugView{
             )
         }
     }
+}
 
-    // 监视变量面板视图
+// MARK: - 监视变量面板视图
+extension debugView{
+    /// 监视变量面板视图
     private var watchPanelView: some View {
         VStack(spacing: 0) {
             HStack {

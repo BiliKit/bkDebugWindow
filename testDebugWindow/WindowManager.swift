@@ -17,7 +17,10 @@ class WindowManager: ObservableObject {
     let defaultMainWindowHeight: CGFloat = 600
 
     // 默认调试窗口尺寸
-    let defaultDebugWindowWidth: CGFloat = 350
+    let defaultDebugWindowWidth: CGFloat = 400
+
+    // debugwindow 和 mainwindow 的间隔
+    let debugWindowMainWindowSpacing: CGFloat = 0
 
     // 吸附配置
     let snapDistanceOutside: CGFloat = 70    // 外部吸附距离
@@ -139,12 +142,14 @@ extension WindowManager {
 
     /// 吸附动画方法
     func snapDebugWindowToMain() {
-        let windows = NSApplication.shared.windows
-        guard let currentWindow = windows.first(where: { $0.title == "debugWindow" }),
-              let mainWindow = windows.first(where: { $0.title != "debugWindow" }) else { return }
-
-        print("currentWindow: \(currentWindow.title)")
-        print("mainWindow: \(mainWindow.title)")
+        // let windows = NSApplication.shared.windows
+        // guard let currentWindow = windows.first(where: { $0.title == "debugWindow" }),
+        //       let mainWindow = windows.first(where: { $0.title != "debugWindow" }) else { return }
+        guard let currentWindow = debugWindow,
+              let mainWindow = mainWindow else {
+            print("debugWindow 或 mainWindow 为空")
+            return
+        }
 
         let currentFrame = currentWindow.frame
         var newFrame = currentFrame
@@ -152,13 +157,16 @@ extension WindowManager {
         // 计算贴合位置
         if currentWindow.frame.midX < mainWindow.frame.midX {
             // 当前窗口在左边，贴合到目标窗口的左边
-            newFrame.origin.x = mainWindow.frame.minX - currentFrame.width - 1
+            newFrame.origin.x = mainWindow.frame.minX
+                                - currentFrame.width
+                                - debugWindowMainWindowSpacing
             newFrame.origin.y = mainWindow.frame.minY
             newFrame.size.height = mainWindow.frame.size.height
             debugWindowSide = .left
         } else {
             // 当前窗口在右边，贴合到目标窗口的右边
-            newFrame.origin.x = mainWindow.frame.maxX + 1
+            newFrame.origin.x = mainWindow.frame.maxX
+                                + debugWindowMainWindowSpacing
             newFrame.origin.y = mainWindow.frame.minY
             newFrame.size.height = mainWindow.frame.size.height
             debugWindowSide = .right
@@ -315,35 +323,6 @@ extension WindowManager {
 //        windowAnimator = WindowAnimator(window: window)
 //        windowAnimator?.animate(to: targetFrame, completion: completion)
 //    }
-//
-//    // MARK: - Child Window Management
-//    func makeDebugWindowChild(of mainWindow: NSWindow) {
-//        guard let debugWindow = debugWindow else { return }
-//
-//        let targetFrame = calculateDebugWindowFrame(mainWindow: mainWindow, debugWindow: debugWindow)
-//        debugWindow.setFrame(targetFrame, display: true)
-//
-//        mainWindow.removeChildWindow(debugWindow)
-//        mainWindow.addChildWindow(debugWindow, ordered: .above)
-//        debugState.isAttached = true
-//    }
-//
-//    // MARK: - Window State Management
-//    func handleWindowMove(_ window: NSWindow) {
-//        if isDebugWindow(window) {
-//            if !isProgrammaticMove {
-//                debugState.isAttached = false
-//            }
-//        } else {
-//            handleMainWindowMove(window)
-//        }
-//    }
-//
-//    private func handleDebugWindowMove(_ window: NSWindow) {
-//        guard !isProgrammaticMove else { return }
-//        debugState.isAttached = false
-//    }
-//
 //    private func handleMainWindowMove(_ window: NSWindow) {
 //        if debugState.isAttached {
 //            updateDebugWindowPosition()
@@ -371,27 +350,3 @@ extension WindowManager {
 //            openDebugWindow()
 //        }
 //    }
-//
-//    private func openDebugWindow() {
-//        openWindow?("debug-window")
-//        debugState.isWindowOpen = true
-//
-//        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-//            guard let self = self,
-//                  let mainWindow = self.mainWindow else { return }
-//
-//            if self.debugState.isAttached {
-//                self.makeDebugWindowChild(of: mainWindow)
-//            }
-//        }
-//    }
-//
-//    private func closeDebugWindow() {
-//        if let mainWindow = mainWindow,
-//           let debugWindow = debugWindow {
-//            mainWindow.removeChildWindow(debugWindow)
-//        }
-//        dismissWindow?("debug-window")
-//        debugState.isWindowOpen = false
-//    }
-//}

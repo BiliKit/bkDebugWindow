@@ -30,14 +30,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     let currentScreen = NSScreen.main ?? NSScreen.screens.first
 
-    let mainWindow = NSApplication.shared.windows.first
-    let debugWindow = NSApplication.shared.windows.first{$0.title == "debugWindow"}
-
     func applicationDidFinishLaunching(_ notification: Notification) {
 
         let debugWindow = initDebugWindow()
-
-        let mainWindow = NSApplication.shared.windows.first
 
         // 设置窗口管理器
         manager.mainWindow = NSApplication.shared.windows.first
@@ -60,16 +55,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             window.animationBehavior = .documentWindow
         }
 
-        let mainWindowHeight = mainWindow?.frame.size.height
-        let mainWindowMaxX = mainWindow?.frame.maxX
-        let mainWindowMinY = mainWindow?.frame.minY
+        let mainWindowHeight = manager.mainWindow?.frame.size.height
+        let mainWindowMaxX = manager.mainWindow?.frame.maxX
+        let mainWindowMinY = manager.mainWindow?.frame.minY
 
-        // 启动程序的展开动画
-        animateWindow(debugWindow, to: NSRect(x: mainWindowMaxX!, y: mainWindowMinY!+(mainWindowHeight!-200), width: 120, height: 200), duration: 0) {
-            self.animateWindow(debugWindow, to: NSRect(x: mainWindowMaxX!, y: mainWindowMinY!, width: 380, height: mainWindowHeight!), duration: 0.35, completion: nil)
-        }
+        let startFrame = NSRect(x: mainWindowMaxX!,
+            y: mainWindowMinY!+(mainWindowHeight!-200),
+            width: manager.defaultDebugWindowWidth,
+            height: 200)
 
-        mainWindow?.addChildWindow(debugWindow, ordered: .above)
+        let endFrame = NSRect(
+            x: mainWindowMaxX!,
+            y: mainWindowMinY!,
+            width: manager.defaultDebugWindowWidth,
+            height: mainWindowHeight!)
+
+        animateWindow(debugWindow, to: startFrame, duration: 0.0) {}
+        animateWindow(debugWindow, to: endFrame, duration: 0.45) {}
+
+        manager.mainWindow?.addChildWindow(debugWindow, ordered: .above)
         #if DEVELOPMENT
         DebugState.shared.system("debugWindow 已绑定为 mainWindow 子窗口")
         #endif
@@ -91,7 +95,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         guard let window = notification.object as? NSWindow else { return }
         manager.activeWindow = window
         #if DEVELOPMENT
-        if window == debugWindow {
+        if window == manager.debugWindow {
             DebugState.shared.system("debug window 被激活", details: """
                 Identifier: \(window.identifier?.rawValue ?? "none")
                 FileName: \((#file as NSString).lastPathComponent)
@@ -108,6 +112,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             {
                 context in
                 context.duration = duration
+                context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
                 window.animator().setFrame(frame, display: true)
             }, completionHandler: completion)
     }
@@ -164,13 +169,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 return event
             }
 
-            // 检查点击是否发生在按钮上 or toggle image text
-            if let view = event.window?.contentView?.hitTest(event.locationInWindow),
-               view is NSButton {
-                // 如果是按钮，直接返回事件，不进行处理
-                return event
-            }
-
             return self.handleDebugWindowDrag(event, debugWindow: debugWindow, mainWindow: mainWindow)
         }
 
@@ -197,6 +195,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         case .leftMouseDragged:
             // 设置状态为拖动中
             manager.windowState = .dragging
+
+            DebugState.shared.userAction("debug window 被拖动")
 
             // 如果是激活的调试窗口被拖动，解除子窗口关系
             if debugWindow.parent != nil && manager.activeWindow == debugWindow {
