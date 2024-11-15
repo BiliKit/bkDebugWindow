@@ -2,8 +2,8 @@ import AppKit
 import SwiftUI
 import Combine
 
-class WindowManager: ObservableObject {
-    static let shared = WindowManager()
+class baWindowManager: ObservableObject {
+    static let shared = baWindowManager()
 
     // 确保单例
     private init() {}
@@ -105,7 +105,7 @@ class WindowManager: ObservableObject {
 }
 
 // MARK: - 枚举类
-extension WindowManager{
+extension baWindowManager{
 
     /// 窗口状态枚举
     enum WindowState: String {
@@ -128,7 +128,7 @@ extension WindowManager{
 }
 
 // MARK: - 辅助方法
-extension WindowManager {
+extension baWindowManager {
 
     /// 判断两个窗口是否重叠
     func isWindowsOverlapping(_ frame1: NSRect, _ frame2: NSRect) -> Bool {

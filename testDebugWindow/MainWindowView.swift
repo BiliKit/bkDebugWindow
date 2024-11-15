@@ -10,7 +10,7 @@ import AppKit
 
 struct MainWindowView: View {
     let windowId: String
-    @ObservedObject var manager = WindowManager.shared
+    @ObservedObject var manager = baWindowManager.shared
     @State private var counter = 0 {
         didSet {
             debugState.updateWatchVariable(name: "counter", value: counter, type: "Int")

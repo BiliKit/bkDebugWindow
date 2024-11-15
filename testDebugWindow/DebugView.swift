@@ -6,7 +6,7 @@ import Foundation
 
 struct debugView: View {
     let windowId: String
-    @StateObject private var manager = WindowManager.shared
+    @StateObject private var manager = baWindowManager.shared
     @StateObject private var debugState = DebugState.shared
     @State private var autoScroll = DebugState.shared.autoScroll
     @State private var isPaused = DebugState.shared.isPaused
