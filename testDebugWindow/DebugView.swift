@@ -2,11 +2,17 @@ import SwiftUI
 import AppKit
 import QuartzCore
 import Combine
+import Foundation
 
 struct debugView: View {
     let windowId: String
-    @ObservedObject var manager = WindowManager.shared
-    @ObservedObject var debugState: DebugState = .shared
+    @StateObject private var manager = WindowManager.shared
+    @StateObject private var debugState = DebugState.shared
+    @State private var autoScroll = DebugState.shared.autoScroll
+    @State private var isPaused = DebugState.shared.isPaused
+    @StateObject private var themeManager = ThemeManager.shared
+    @StateObject private var performanceMonitor = PerformanceMonitor.shared
+    @StateObject private var keyboardManager = KeyboardShortcutManager.shared
 
     var body: some View {
         ZStack{
@@ -23,23 +29,35 @@ struct debugView: View {
             //     startPoint: .topLeading,
             //     endPoint: .bottomTrailing
             // )
+            themeManager.currentTheme.backgroundColor
+                .ignoresSafeArea()
+
             VStack(spacing: 0) {
                 toolbarView
+                    .frame(maxWidth: .infinity)
+                    .background(themeManager.currentTheme.toolbarColor)
                 Divider()
 
-                // 修改这部分布局
+                // 主要内容区域
                 GeometryReader { geometry in
                     VSplitView {
                         // 消息列表视图，设置最小高度
                         messageListView
-                            .frame(maxHeight: .infinity)
-                            .layoutPriority(1)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .background(themeManager.currentTheme.backgroundColor)
 
                         // 监视面板视图，设置固定高度范围
                         if debugState.showWatchPanel {
                             watchPanelView
-                                .frame(minHeight: 60, maxHeight: 120)
+                                .frame(maxWidth: .infinity, minHeight: 60, maxHeight: 120)
                         }
+
+                        // 性能监控面板
+                        performancePanel
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .frame(maxWidth: .infinity)
+                            .background(themeManager.currentTheme.toolbarColor)
                     }
                 }
             }
@@ -66,6 +84,13 @@ struct debugView: View {
                 object: nil
             )
         }
+        // .background(themeManager.currentTheme.backgroundColor)
+        .onChange(of: autoScroll) { _, newValue in
+            debugState.autoScroll = newValue
+        }
+        .onChange(of: isPaused) { _, newValue in
+            debugState.isPaused = newValue
+        }
     }
 }
 
@@ -73,6 +98,7 @@ struct debugView: View {
 struct MessageRow: View {
     @ObservedObject var debugState: DebugState = .shared
     let message: DebugMessage
+    @StateObject private var themeManager = ThemeManager.shared
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -125,6 +151,12 @@ struct MessageRow: View {
         )
         // 添加详情切换动画
         .animation(.easeInOut(duration: 0.2), value: debugState.showDetails)
+    }
+
+    private func formatTimestamp(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "HH:mm:ss.SSS"
+        return formatter.string(from: date)
     }
 }
 
@@ -196,6 +228,26 @@ struct WatchVariableRow: View {
                 .fill(Color.primary.opacity(0.06))
         )
         .frame(height: 16)
+    }
+}
+private struct WatchVariableView: View {
+    let variable: WatchVariable
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(variable.name)
+                .font(.system(size: 12))
+                .foregroundColor(.secondary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+            Text("\(variable.value)")
+                .font(.system(.body, design: .monospaced))
+                .foregroundColor(.primary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(6)
+        .background(Color(.systemGray).opacity(0.1))
+        .cornerRadius(6)
     }
 }
 
@@ -281,61 +333,61 @@ struct FlowLayout: Layout {
 /// 变量监视面板视图
 extension debugView {
     /// 变量监视面板视图
-    private var watchPanelView: some View {
-        VStack(spacing: 0) {
-            // 面板头部
-            HStack {
-                HStack(spacing: 4) {
-                    Image(systemName: "gauge")
-                        .font(.system(size: 11))
-                    Text("变量监视")
-                        .font(.system(size: 11, weight: .medium))
-                }
-                .foregroundColor(.secondary)
+    // private var watchPanelView: some View {
+    //     VStack(spacing: 0) {
+    //         // 面板头部
+    //         HStack {
+    //             HStack(spacing: 4) {
+    //                 Image(systemName: "gauge")
+    //                     .font(.system(size: 11))
+    //                 Text("变量监视")
+    //                     .font(.system(size: 11, weight: .medium))
+    //             }
+    //             .foregroundColor(.secondary)
 
-                Spacer()
+    //             Spacer()
 
-                // 清除按钮
-                Button(action: {
-                    debugState.clearWatchVariables()
-                }) {
-                    Image(systemName: "trash")
-                        .font(.system(size: 9))
-                        .foregroundColor(.gray)
-                }
-                .buttonStyle(.plain)
-                .help("清除所有监视变量")
-            }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
+    //             // 清除按钮
+    //             Button(action: {
+    //                 debugState.clearWatchVariables()
+    //             }) {
+    //                 Image(systemName: "trash")
+    //                     .font(.system(size: 9))
+    //                     .foregroundColor(.gray)
+    //             }
+    //             .buttonStyle(.plain)
+    //             .help("清除所有监视变量")
+    //         }
+    //         .padding(.horizontal, 8)
+    //         .padding(.vertical, 4)
 
-            Divider()
+    //         Divider()
 
-            // 变量列表内容
-            if debugState.watchVariables.isEmpty {
-                // 空状态显示
-                VStack {
-                    Text("暂无监视变量")
-                        .font(.system(size: 11))
-                        .foregroundColor(.secondary)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 8)
-            } else {
-                // 变量列表
-                ScrollView(.vertical, showsIndicators: false) {
-                    FlowLayout(spacing: 4) {
-                        ForEach(debugState.watchVariables) { variable in
-                            WatchVariableRow(variable: variable)
-                                .fixedSize()
-                        }
-                    }
-                    .padding(4)
-                }
-            }
-        }
-        .background(Color.clear)
-    }
+    //         // 变量列表内容
+    //         if debugState.watchVariables.isEmpty {
+    //             // 空状态显示
+    //             VStack {
+    //                 Text("暂无监视变量")
+    //                     .font(.system(size: 11))
+    //                     .foregroundColor(.secondary)
+    //             }
+    //             .frame(maxWidth: .infinity)
+    //             .padding(.vertical, 8)
+    //         } else {
+    //             // 变量列表
+    //             ScrollView(.vertical, showsIndicators: false) {
+    //                 FlowLayout(spacing: 4) {
+    //                     ForEach(debugState.watchVariables) { variable in
+    //                         WatchVariableRow(variable: variable)
+    //                             .fixedSize()
+    //                     }
+    //                 }
+    //                 .padding(4)
+    //             }
+    //         }
+    //     }
+    //     .background(Color.clear)
+    // }
 }
 
 // 消息过滤函数
@@ -347,34 +399,6 @@ extension debugView{
             return messages
         }
         return messages.filter { $0.content.localizedCaseInsensitiveContains(debugState.searchText) }
-    }
-}
-
-// 状态显示区域
-extension debugView {
-    /// 状态显示区域
-    var infoView: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            statusRow(title: "窗口 ID:", value: windowId)
-            statusRow(title: "状态:", value: manager.windowState.rawValue)
-            statusRow(title: "式:", value: manager.windowMode.rawValue)
-        }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.black.opacity(0.2))
-        )
-        .padding(.horizontal)
-    }
-
-    private func statusRow(title: String, value: String) -> some View {
-        HStack {
-            Text(title)
-                .foregroundColor(.gray)
-            Text(value)
-                .foregroundColor(.white)
-                .fontWeight(.medium)
-        }
     }
 }
 
@@ -403,6 +427,7 @@ extension debugView {
                 }
                 .padding(.vertical, 8)
             }
+            .listStyle(.plain)
             // 自动滚动到最新消息
             // .onChange(of: debugState.debugMessages.count) { oldValue, newValue in
             //     if let lastMessage = filteredMessages.last {
@@ -516,6 +541,12 @@ extension debugView {
                 .buttonStyle(CapsuleButtonStyle())
                 .help("清除所有消息")
 
+                Button(action: { debugState.exportCurrentMessages() }) {
+                    Image(systemName: "square.and.arrow.up")
+                }
+                .buttonStyle(CapsuleButtonStyle())
+                .help("导出日志")
+
                 // 模式切换按钮
                 Button {
                     withAnimation {
@@ -580,5 +611,75 @@ struct CapsuleButtonStyle: ButtonStyle {
             .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
             .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
             .contentShape(Capsule())
+    }
+}
+
+extension debugView{
+    // 性能指标视图组件
+    private struct PerformanceMetricView: View {
+        let title: String
+        let value: String
+        let icon: String
+
+        var body: some View {
+            Label {
+                Text(value)
+                    .font(.system(.body, design: .monospaced))
+            } icon: {
+                Image(systemName: icon)
+            }
+            .foregroundColor(.primary)
+        }
+    }
+
+    // 性能监控面板
+    private var performancePanel: some View {
+        HStack(spacing: 16) {
+            PerformanceMetricView(
+                title: "CPU",
+                value: performanceMonitor.formattedCPUUsage,
+                icon: "cpu"
+            )
+            Spacer()
+            PerformanceMetricView(
+                title: "内存",
+                value: performanceMonitor.formattedMemoryUsage,
+                icon: "memorychip"
+            )
+            PerformanceMetricView(
+                title: "FPS",
+                value: performanceMonitor.formattedFPS,
+                icon: "gauge"
+            )
+        }
+    }
+
+    // 监视变量面板视图
+    private var watchPanelView: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text("监视变量")
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+                Spacer()
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(themeManager.currentTheme.toolbarColor)
+
+            ScrollView {
+                LazyVGrid(columns: [
+                    GridItem(.flexible()),
+                    GridItem(.flexible()),
+                    GridItem(.flexible())
+                ], spacing: 8) {
+                    ForEach(debugState.watchVariables) { variable in
+                        WatchVariableView(variable: variable)
+                    }
+                }
+                .padding(8)
+            }
+        }
+        .background(themeManager.currentTheme.backgroundColor)
     }
 }

@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// 调试消息类型枚举
-enum DebugMessageType: String, CaseIterable {
+enum DebugMessageType: String, CaseIterable, Codable {
     /// 普通信息
     case info = "信息"
     /// 警告信息
@@ -45,9 +45,9 @@ enum DebugMessageType: String, CaseIterable {
 }
 
 /// 调试消息结构体
-struct DebugMessage: Identifiable, Hashable {
+struct DebugMessage: Identifiable, Hashable, Codable {
     /// 唯一标识符
-    let id = UUID()
+    let id: UUID
     /// 消息时间戳
     let timestamp: Date
     /// 消息类型
@@ -60,11 +60,13 @@ struct DebugMessage: Identifiable, Hashable {
     let threadName: String
 
     /// 初始化方法
-    init(timestamp: Date = Date(),
+    init(id: UUID = UUID(),
+         timestamp: Date = Date(),
          type: DebugMessageType,
          content: String,
          details: String? = nil,
          threadName: String = Thread.current.name ?? "main") {
+        self.id = id
         self.timestamp = timestamp
         self.type = type
         self.content = content
@@ -88,6 +90,16 @@ struct DebugMessage: Identifiable, Hashable {
     /// Equatable协议实现
     static func == (lhs: DebugMessage, rhs: DebugMessage) -> Bool {
         lhs.id == rhs.id
+    }
+
+    /// 编码键
+    enum CodingKeys: String, CodingKey {
+        case id
+        case timestamp
+        case type
+        case content
+        case details
+        case threadName
     }
 }
 
@@ -120,6 +132,8 @@ class DebugState: ObservableObject {
     @Published var searchText: String = ""
     /// 是否自动滚动
     @Published var autoScroll: Bool = true
+    /// 是否暂停
+    @Published var isPaused: Bool = false
     /// 调试消息数组
     @Published private(set) var debugMessages: [DebugMessage] = []
     /// 消息统计信息
@@ -156,6 +170,14 @@ class DebugState: ObservableObject {
     private var isInitialized = false
     /// 最大消息数量
     private let maxMessages: Int
+    /// 消息批处理队列
+    private var messageBatch: [DebugMessage] = []
+    /// 批处理计时器
+    private var batchTimer: Timer?
+    /// 最后一次清理时间
+    private var lastCleanupTime: Date = Date()
+    /// 清理时间间隔（秒）
+    private let cleanupInterval: TimeInterval = 300 // 5分钟
 
     // MARK: - 初始化方法
 
@@ -171,6 +193,8 @@ class DebugState: ObservableObject {
 
         self.loadSavedStates()
         self.updateMessageStats()
+        self.setupBatchProcessing()
+        self.setupCleanupTimer()
         DispatchQueue.main.async {
             self.isInitialized = true
             self.debugMessages.append(DebugMessage(
@@ -207,6 +231,85 @@ class DebugState: ObservableObject {
         self.isAttached = UserDefaults.standard.bool(forKey: "debug_window_is_attached")
     }
 
+    /// 设置批处理
+    private func setupBatchProcessing() {
+        batchTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+            self?.processBatch()
+        }
+    }
+
+    /// 设置清理定时器
+    private func setupCleanupTimer() {
+        Timer.scheduledTimer(withTimeInterval: cleanupInterval, repeats: true) { [weak self] _ in
+            self?.performCleanup()
+        }
+    }
+
+    /// 处理消息批次
+    private func processBatch() {
+        guard !messageBatch.isEmpty else { return }
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.debugMessages.append(contentsOf: self.messageBatch)
+            self.messageBatch.removeAll()
+            self.updateMessageStats()
+
+            // 如果超出最大消息数，移除旧消息
+            if self.debugMessages.count > self.maxMessages {
+                self.debugMessages.removeFirst(self.debugMessages.count - self.maxMessages)
+            }
+        }
+    }
+
+    /// 执行清理操作
+    private func performCleanup() {
+        let now = Date()
+        let oldMessages = debugMessages.filter { now.timeIntervalSince($0.timestamp) > cleanupInterval }
+
+        if !oldMessages.isEmpty {
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                // 导出旧消息
+                self.exportOldMessages(oldMessages)
+                // 从当前消息列表中移除
+                self.debugMessages.removeAll { message in
+                    oldMessages.contains { $0.id == message.id }
+                }
+                self.updateMessageStats()
+            }
+        }
+    }
+
+    /// 导出旧消息
+    private func exportOldMessages(_ messages: [DebugMessage]) {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+        let fileName = "debug_log_\(dateFormatter.string(from: Date())).json"
+
+        let fileManager = FileManager.default
+        guard let documentDirectory = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            return
+        }
+
+        let logsDirectory = documentDirectory.appendingPathComponent("DebugLogs")
+
+        do {
+            try fileManager.createDirectory(at: logsDirectory, withIntermediateDirectories: true)
+
+            let fileURL = logsDirectory.appendingPathComponent(fileName)
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = .prettyPrinted
+
+            let messageData = try encoder.encode(messages)
+            try messageData.write(to: fileURL)
+
+            self.info("已导出历史日志到: \(fileName)")
+        } catch {
+            self.error("导出日志失败: \(error.localizedDescription)")
+        }
+    }
+
     // MARK: - 公共方法
 
     /// 添加新的调试消息
@@ -220,12 +323,7 @@ class DebugState: ObservableObject {
             let message = DebugMessage(type: type, content: content, details: details)
 
             DispatchQueue.main.async {
-                self.debugMessages.append(message)
-                if self.debugMessages.count > self.maxMessages {
-                    self.debugMessages.removeFirst(self.debugMessages.count - self.maxMessages)
-                }
-                self.updateMessageStats()
-                print("DebugState: Message added successfully")
+                self.messageBatch.append(message)
             }
         }
     }
@@ -327,7 +425,6 @@ class DebugState: ObservableObject {
             let stringValue = String(describing: value)
             if let index = self.watchVariables.firstIndex(where: { $0.name == name }) {
                 // 更新现有变量
-                let oldValue = self.watchVariables[index].value
                 self.watchVariables[index] = WatchVariable(
                     name: name,
                     value: stringValue,
@@ -429,6 +526,60 @@ class DebugState: ObservableObject {
                 type: "Window"
             )
         }
+    }
+
+    /// 导出当前消息
+    func exportCurrentMessages() {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+        let fileName = "debug_log_\(dateFormatter.string(from: Date())).json"
+
+        let fileManager = FileManager.default
+        guard let documentDirectory = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            self.error("无法获取文档目录")
+            return
+        }
+
+        let logsDirectory = documentDirectory.appendingPathComponent("DebugLogs")
+
+        do {
+            // 创建日志目录
+            try fileManager.createDirectory(at: logsDirectory, withIntermediateDirectories: true)
+
+            let fileURL = logsDirectory.appendingPathComponent(fileName)
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            encoder.dateEncodingStrategy = .iso8601
+
+            let messageData = try encoder.encode(debugMessages)
+            try messageData.write(to: fileURL)
+
+            self.info("已导出调试日志到: \(fileName)")
+
+            // 在 Finder 中显示文件
+            NSWorkspace.shared.selectFile(fileURL.path, inFileViewerRootedAtPath: logsDirectory.path)
+        } catch {
+            self.error("导出日志失败: \(error.localizedDescription)")
+        }
+    }
+
+    /// 导出指定的消息
+    func exportMessages(_ messages: [DebugMessage], to fileName: String) throws {
+        let fileManager = FileManager.default
+        guard let documentDirectory = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            throw NSError(domain: "DebugState", code: -1, userInfo: [NSLocalizedDescriptionKey: "无法获取文档目录"])
+        }
+
+        let logsDirectory = documentDirectory.appendingPathComponent("DebugLogs")
+        try fileManager.createDirectory(at: logsDirectory, withIntermediateDirectories: true)
+
+        let fileURL = logsDirectory.appendingPathComponent(fileName)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+
+        let messageData = try encoder.encode(messages)
+        try messageData.write(to: fileURL)
     }
 }
 
