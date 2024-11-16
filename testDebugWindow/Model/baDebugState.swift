@@ -1,112 +1,10 @@
 import SwiftUI
 
-/// 调试消息类型枚举
-enum DebugMessageType: String, CaseIterable, Codable {
-    /// 普通信息
-    case info = "信息"
-    /// 警告信息
-    case warning = "警告"
-    /// 错误信息
-    case error = "错误"
-    /// 用户操作记录
-    case userAction = "用户操作"
-    /// 网络相关信息
-    case network = "网络"
-    /// 系统相关信息
-    case system = "系统"
-    /// 性能相关信息
-    case performance = "性能"
-
-    /// 每种消息类型对应的显示颜色
-    var color: Color {
-        switch self {
-        case .info: return .blue
-        case .warning: return .orange
-        case .error: return .red
-        case .userAction: return .green
-        case .network: return .cyan
-        case .system: return .purple
-        case .performance: return .yellow
-        }
-    }
-
-    /// 每种消息类型对应的SF Symbol图标
-    var icon: String {
-        switch self {
-        case .info: return "info.circle"
-        case .warning: return "exclamationmark.triangle"
-        case .error: return "xmark.circle"
-        case .userAction: return "person.circle"
-        case .network: return "network"
-        case .system: return "gear"
-        case .performance: return "gauge"
-        }
-    }
-}
-
-/// 调试消息结构体
-struct DebugMessage: Identifiable, Hashable, Codable {
-    /// 唯一标识符
-    let id: UUID
-    /// 消息时间戳
-    let timestamp: Date
-    /// 消息类型
-    let type: DebugMessageType
-    /// 消息内容
-    let content: String
-    /// 详细信息（可选）
-    let details: String?
-    /// 线程名称
-    let threadName: String
-
-    /// 初始化方法
-    init(id: UUID = UUID(),
-         timestamp: Date = Date(),
-         type: DebugMessageType,
-         content: String,
-         details: String? = nil,
-         threadName: String = Thread.current.name ?? "main") {
-        self.id = id
-        self.timestamp = timestamp
-        self.type = type
-        self.content = content
-        self.details = details
-        self.threadName = threadName
-    }
-
-    /// 格式化的消息字符串
-    var formattedMessage: String {
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "HH:mm:ss.SSS"
-
-        return "[\(dateFormatter.string(from: timestamp))][\(threadName)][\(type.rawValue)] \(content)"
-    }
-
-    /// Hashable协议实现
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(id)
-    }
-
-    /// Equatable协议实现
-    static func == (lhs: DebugMessage, rhs: DebugMessage) -> Bool {
-        lhs.id == rhs.id
-    }
-
-    /// 编码键
-    enum CodingKeys: String, CodingKey {
-        case id
-        case timestamp
-        case type
-        case content
-        case details
-        case threadName
-    }
-}
 
 /// 调试状态管理类
-class DebugState: ObservableObject {
+class baDebugState: ObservableObject {
     /// 单例实例
-    static let shared = DebugState()
+    static let shared = baDebugState()
 
     /// 是否显示监视面板
     @Published var showWatchPanel: Bool = true
@@ -512,7 +410,7 @@ class DebugState: ObservableObject {
 }
 
 // MARK: - 便利方法扩展
-extension DebugState {
+extension baDebugState {
     /// 添加信息类型的消息
     func info(_ message: String, details: String? = nil) {
         addMessage(message, type: .info, details: details)
@@ -570,6 +468,109 @@ protocol WatchableVariable {
     var name: String { get }
     var type: String { get }
     var valueString: String { get }
+}
+
+/// 调试消息类型枚举
+enum DebugMessageType: String, CaseIterable, Codable {
+    /// 普通信息
+    case info = "信息"
+    /// 警告信息
+    case warning = "警告"
+    /// 错误信息
+    case error = "错误"
+    /// 用户操作记录
+    case userAction = "用户操作"
+    /// 网络相关信息
+    case network = "网络"
+    /// 系统相关信息
+    case system = "系统"
+    /// 性能相关信息
+    case performance = "性能"
+
+    /// 每种消息类型对应的显示颜色
+    var color: Color {
+        switch self {
+        case .info: return .blue
+        case .warning: return .orange
+        case .error: return .red
+        case .userAction: return .green
+        case .network: return .cyan
+        case .system: return .purple
+        case .performance: return .yellow
+        }
+    }
+
+    /// 每种消息类型对应的SF Symbol图标
+    var icon: String {
+        switch self {
+        case .info: return "info.circle"
+        case .warning: return "exclamationmark.triangle"
+        case .error: return "xmark.circle"
+        case .userAction: return "person.circle"
+        case .network: return "network"
+        case .system: return "gear"
+        case .performance: return "gauge"
+        }
+    }
+}
+
+/// 调试消息结构体
+struct DebugMessage: Identifiable, Hashable, Codable {
+    /// 唯一标识符
+    let id: UUID
+    /// 消息时间戳
+    let timestamp: Date
+    /// 消息类型
+    let type: DebugMessageType
+    /// 消息内容
+    let content: String
+    /// 详细信息（可选）
+    let details: String?
+    /// 线程名称
+    let threadName: String
+
+    /// 初始化方法
+    init(id: UUID = UUID(),
+         timestamp: Date = Date(),
+         type: DebugMessageType,
+         content: String,
+         details: String? = nil,
+         threadName: String = Thread.current.name ?? "main") {
+        self.id = id
+        self.timestamp = timestamp
+        self.type = type
+        self.content = content
+        self.details = details
+        self.threadName = threadName
+    }
+
+    /// 格式化的消息字符串
+    var formattedMessage: String {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "HH:mm:ss.SSS"
+
+        return "[\(dateFormatter.string(from: timestamp))][\(threadName)][\(type.rawValue)] \(content)"
+    }
+
+    /// Hashable协议实现
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+
+    /// Equatable协议实现
+    static func == (lhs: DebugMessage, rhs: DebugMessage) -> Bool {
+        lhs.id == rhs.id
+    }
+
+    /// 编码键
+    enum CodingKeys: String, CodingKey {
+        case id
+        case timestamp
+        case type
+        case content
+        case details
+        case threadName
+    }
 }
 
 // 添加一个泛型包装器来观察变量

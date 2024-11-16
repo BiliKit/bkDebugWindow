@@ -8,7 +8,7 @@
 import SwiftUI
 import AppKit
 
-struct MainWindowView: View {
+struct baMainWindowView: View {
     let windowId: String
 
     @ObservedObject var manager = baWindowManager.shared
@@ -18,7 +18,7 @@ struct MainWindowView: View {
         }
     }
     /// 调试状态对象
-    @ObservedObject var debugState: DebugState = .shared
+    @ObservedObject var debugState: baDebugState = .shared
 
     var body: some View {
         VStack(spacing: 20) {
@@ -87,7 +87,7 @@ struct MainWindowView: View {
     }
 }
 
-extension MainWindowView {
+extension baMainWindowView {
     /// 增加计数器
     private func incrementCounter() {
         counter += 1
@@ -100,7 +100,7 @@ extension MainWindowView {
     }
 }
 
-extension MainWindowView {
+extension baMainWindowView {
     private func infoRow(title: String, value: String) -> some View {
         HStack {
             Text(title)
@@ -112,14 +112,14 @@ extension MainWindowView {
     }
 }
 
-extension MainWindowView {
+extension baMainWindowView {
     private func getWindowSizeString() -> String {
         guard let window = manager.mainWindow else { return "未知" }
         return String(format: "%.0f × %.0f", window.frame.width, window.frame.height)
     }
 }
 
-extension MainWindowView {
+extension baMainWindowView {
     private func getDebugWindowStatus() -> String {
         if manager.debugWindow?.parent != nil {
             return "已吸附"

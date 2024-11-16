@@ -66,7 +66,7 @@ class baDebugWindowDelegate: NSObject, NSWindowDelegate {
         window.backgroundColor = NSColor.windowBackgroundColor.withAlphaComponent(0.95)
 
         // 内容视图设置
-        window.contentView = NSHostingView(rootView: debugView(windowId: manager.debugWindowName))
+        window.contentView = NSHostingView(rootView: baDebugView(windowId: manager.debugWindowName))
         window.contentView?.wantsLayer = true
         window.contentView?.layerContentsRedrawPolicy = .onSetNeedsDisplay
 
@@ -162,7 +162,7 @@ extension baDebugWindowDelegate {
         manager.activeWindow = window
         #if DEVELOPMENT
         if window == manager.debugWindow {
-            DebugState.shared.system("debug window 被激活", details: """
+            baDebugState.shared.system("debug window 被激活", details: """
                 Identifier: \(window.identifier?.rawValue ?? "none")
                 FileName: \((#file as NSString).lastPathComponent)
                 FileID: \(#fileID)

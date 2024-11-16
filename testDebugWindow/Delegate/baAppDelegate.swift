@@ -52,7 +52,7 @@ class baAppDelegate: NSObject, NSApplicationDelegate {
 
         manager.mainWindow?.addChildWindow(debugWindow, ordered: .above)
         #if DEVELOPMENT
-        DebugState.shared.system("debugWindow 已绑定为 mainWindow 子窗口")
+        baDebugState.shared.system("debugWindow 已绑定为 mainWindow 子窗口")
         #endif
 
         // 显示调试窗口
@@ -101,7 +101,7 @@ extension baAppDelegate {
             if debugWindow.parent != nil && manager.activeWindow == debugWindow {
                 mainWindow.removeChildWindow(debugWindow)
                 #if DEVELOPMENT
-                DebugState.shared.system("解除子窗口关系")
+                baDebugState.shared.system("解除子窗口关系")
                 #endif
             }
 
@@ -138,7 +138,7 @@ extension baAppDelegate {
             manager.isReadyToSnap = false
             if manager.windowState == .dragging {
                 #if DEVELOPMENT
-                DebugState.shared.userAction("结束拖动调试窗口")
+                baDebugState.shared.userAction("结束拖动调试窗口")
                 #endif
             }
 
@@ -167,7 +167,7 @@ extension baAppDelegate {
             newFrame.size.height = mainFrame.height
             manager.debugWindowSide = .left
             #if DEVELOPMENT
-            DebugState.shared.system("吸附到主窗口左侧")
+            baDebugState.shared.system("吸附到主窗口左侧")
             #endif
         } else if distanceToRightEdge <= snapDistance {
             // 吸附到右边
@@ -176,7 +176,7 @@ extension baAppDelegate {
             newFrame.size.height = mainFrame.height
             manager.debugWindowSide = .right
             #if DEVELOPMENT
-            DebugState.shared.system("吸附到主窗口右侧")
+            baDebugState.shared.system("吸附到主窗口右侧")
             #endif
         }
 
@@ -184,7 +184,7 @@ extension baAppDelegate {
         animateWindow(debugWindow, to: newFrame, duration: 0.24){
             mainWindow.addChildWindow(debugWindow, ordered: .above)
             #if DEVELOPMENT
-            DebugState.shared.system("执行吸附动画并设置为子窗口")
+            baDebugState.shared.system("执行吸附动画并设置为子窗口")
             #endif
         }
 
@@ -231,7 +231,7 @@ extension baAppDelegate {
             description: "主窗口移动"
         ))
         #if DEVELOPMENT
-        DebugState.shared.system("设置主窗口移动监听器")
+        baDebugState.shared.system("设置主窗口移动监听器")
         #endif
     }
 
@@ -283,7 +283,7 @@ extension baAppDelegate {
             description: "主窗口大小变化"
         ))
         #if DEVELOPMENT
-        DebugState.shared.system("设置主窗口大小变化监听器")
+        baDebugState.shared.system("设置主窗口大小变化监听器")
         #endif
     }
 

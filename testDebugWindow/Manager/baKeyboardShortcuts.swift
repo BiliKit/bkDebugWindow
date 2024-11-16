@@ -2,8 +2,8 @@ import SwiftUI
 import Carbon
 
 /// 快捷键管理器
-class KeyboardShortcutManager: ObservableObject {
-    static let shared = KeyboardShortcutManager()
+class baKeyboardShortcutManager: ObservableObject {
+    static let shared = baKeyboardShortcutManager()
     
     // 快捷键定义
     struct Shortcut {
@@ -22,7 +22,7 @@ class KeyboardShortcutManager: ObservableObject {
     private var shortcuts: [Shortcut] = []
     
     // 注册快捷键
-    func registerShortcuts(for debugState: DebugState) {
+    func registerShortcuts(for debugState: baDebugState) {
         shortcuts = [
             // 清除所有消息
             Shortcut(key: "k", modifiers: [.command]) {
@@ -71,7 +71,7 @@ class KeyboardShortcutManager: ObservableObject {
 
 /// 快捷键视图修饰器
 struct KeyboardShortcutModifier: ViewModifier {
-    @ObservedObject var manager: KeyboardShortcutManager
+    @ObservedObject var manager: baKeyboardShortcutManager
     
     func body(content: Content) -> some View {
         content

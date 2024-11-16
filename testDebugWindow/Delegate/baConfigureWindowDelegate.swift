@@ -59,7 +59,7 @@ class baConfigureWindowDelegate: NSObject, NSWindowDelegate, NSPopoverDelegate {
         window.backgroundColor = NSColor.windowBackgroundColor.withAlphaComponent(0.95)
 
         // 内容视图设置
-        window.contentView = NSHostingView(rootView: ConfigurationView())
+        window.contentView = NSHostingView(rootView: baConfigurationView())
         window.contentView?.wantsLayer = true
         window.contentView?.layerContentsRedrawPolicy = .onSetNeedsDisplay
 
@@ -180,7 +180,7 @@ extension baConfigureWindowDelegate {
         guard let window = baDebugWindowDelegate.shared.debugWindow else { return }
         configureWindow?.collectionBehavior = [.moveToActiveSpace]
         window.beginSheet(configureWindow!){_ in
-            DebugState.shared.system("配置窗口已关闭")
+            baDebugState.shared.system("配置窗口已关闭")
         }
         // if configPopover == nil {
         //     let popover = NSPopover()

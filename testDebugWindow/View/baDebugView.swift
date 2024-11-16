@@ -4,15 +4,15 @@ import QuartzCore
 import Combine
 import Foundation
 
-struct debugView: View {
+struct baDebugView: View {
     let windowId: String
     @StateObject private var manager = baWindowManager.shared
-    @StateObject private var debugState = DebugState.shared
-    @State private var autoScroll = DebugState.shared.autoScroll
-    @State private var isPaused = DebugState.shared.isPaused
+    @StateObject private var debugState = baDebugState.shared
+    @State private var autoScroll = baDebugState.shared.autoScroll
+    @State private var isPaused = baDebugState.shared.isPaused
     @StateObject private var themeManager = ThemeManager.shared
-    @StateObject private var performanceMonitor = PerformanceMonitor.shared
-    @StateObject private var keyboardManager = KeyboardShortcutManager.shared
+    @StateObject private var performanceMonitor = baPerformanceMonitor.shared
+    @StateObject private var keyboardManager = baKeyboardShortcutManager.shared
 
     var body: some View {
 
@@ -97,7 +97,7 @@ struct debugView: View {
 
 // MARK: - 单条消息行视图
 struct MessageRow: View {
-    @ObservedObject var debugState: DebugState = .shared
+    @ObservedObject var debugState: baDebugState = .shared
     let message: DebugMessage
     @StateObject private var themeManager = ThemeManager.shared
 
@@ -164,7 +164,7 @@ struct MessageRow: View {
 // MARK: - 添加监视变量行视图
 struct WatchVariableRow: View {
     let variable: WatchVariable
-    @ObservedObject var debugState: DebugState = .shared
+    @ObservedObject var debugState: baDebugState = .shared
 
     // 根据变量类型和值获取显示颜色
     private var valueColor: Color {
@@ -332,7 +332,7 @@ struct FlowLayout: Layout {
 }
 
 // MARK: - 变量监视面板视图
-extension debugView {
+extension baDebugView {
     /// 变量监视面板视图
     // private var watchPanelView: some View {
     //     VStack(spacing: 0) {
@@ -392,7 +392,7 @@ extension debugView {
 }
 
 // MARK: - 消息过滤函数
-extension debugView{
+extension baDebugView{
     /// 过滤后的消息列表
     private var filteredMessages: [DebugMessage] {
         let messages = debugState.filteredMessages()
@@ -404,7 +404,7 @@ extension debugView{
 }
 
 // MARK: - 消息列表视图
-extension debugView {
+extension baDebugView {
     /// 消息列表视图 - 根据是否有消息显示不同内容
     private var messageListView: some View {
         Group {
@@ -442,7 +442,7 @@ extension debugView {
 }
 
 // MARK: - 空消息视图
-extension debugView {
+extension baDebugView {
     /// 空状态视图
     private var emptyStateView: some View {
         VStack {
@@ -456,7 +456,7 @@ extension debugView {
     }
 }
 // MARK: - 工具栏视图
-extension debugView {
+extension baDebugView {
     /// 工具栏视图
     private var toolbarView: some View {
         VStack(spacing: 8) {
@@ -604,7 +604,7 @@ extension debugView {
 }
 
 // MARK: - 性能指标视图组件
-extension debugView{
+extension baDebugView {
     /// 性能指标视图组件
     private struct PerformanceMetricView: View {
         let title: String
@@ -646,7 +646,7 @@ extension debugView{
 }
 
 // MARK: - 监视变量面板视图
-extension debugView{
+extension baDebugView {
     /// 监视变量面板视图
     private var watchPanelView: some View {
         VStack(spacing: 0) {

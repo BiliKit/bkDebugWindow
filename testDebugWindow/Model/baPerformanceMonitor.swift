@@ -3,8 +3,8 @@ import QuartzCore
 import CoreVideo
 
 /// 性能监控管理器
-class PerformanceMonitor: ObservableObject {
-    static let shared = PerformanceMonitor()
+class baPerformanceMonitor: ObservableObject {
+    static let shared = baPerformanceMonitor()
 
     @Published private(set) var cpuUsage: Double = 0
     @Published private(set) var memoryUsage: UInt64 = 0
@@ -36,7 +36,7 @@ class PerformanceMonitor: ObservableObject {
 
         let opaqueself = Unmanaged.passUnretained(self).toOpaque()
         CVDisplayLinkSetOutputCallback(link, { (displayLink, _, _, _, _, opaquePointer) -> CVReturn in
-            let mySelf = Unmanaged<PerformanceMonitor>.fromOpaque(opaquePointer!).takeUnretainedValue()
+            let mySelf = Unmanaged<baPerformanceMonitor>.fromOpaque(opaquePointer!).takeUnretainedValue()
             mySelf.frameCount += 1
 
             let currentTime = Double(CVGetCurrentHostTime())
@@ -127,7 +127,7 @@ class PerformanceMonitor: ObservableObject {
 }
 
 // MARK: - 格式化扩展
-extension PerformanceMonitor {
+extension baPerformanceMonitor {
     /// 格式化的CPU使用率
     var formattedCPUUsage: String {
         String(format: "CPU: %.1f%%", cpuUsage)

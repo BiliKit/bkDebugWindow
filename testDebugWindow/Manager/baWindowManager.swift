@@ -30,14 +30,14 @@ class baWindowManager: ObservableObject {
     /// 开始拖动的位置
     var dragStartLocation: NSPoint? {
         didSet {
-            DebugState.shared.updateWatchVariable(name: "dragStartLocationX", value: dragStartLocation?.x ?? 0, type: "Int")
-            DebugState.shared.updateWatchVariable(name: "dragStartLocationY", value: dragStartLocation?.y ?? 0, type: "Int")
+            baDebugState.shared.updateWatchVariable(name: "dragStartLocationX", value: dragStartLocation?.x ?? 0, type: "Int")
+            baDebugState.shared.updateWatchVariable(name: "dragStartLocationY", value: dragStartLocation?.y ?? 0, type: "Int")
         }
     }
     /// 开始拖动前的状态
     var stateBeforeDrag: WindowState? {
         didSet {
-            DebugState.shared.updateWatchVariable(name: "stateBeforeDrag", value: stateBeforeDrag?.rawValue ?? "unknown", type: "String")
+            baDebugState.shared.updateWatchVariable(name: "stateBeforeDrag", value: stateBeforeDrag?.rawValue ?? "unknown", type: "String")
         }
     }
 
@@ -47,30 +47,30 @@ class baWindowManager: ObservableObject {
     /// debug window 贴合方向
     @Published var debugWindowSide: Side = .right {
         didSet {
-            DebugState.shared.updateWatchVariable(name: "debugWindowSide", value: debugWindowSide.rawValue, type: "String")
+            baDebugState.shared.updateWatchVariable(name: "debugWindowSide", value: debugWindowSide.rawValue, type: "String")
         }
     }
 
     /// 期望的窗口位置
     @Published var targetFrame: NSRect = .zero {
         didSet {
-            DebugState.shared.updateWatchVariable(name: "targetFrameX", value: targetFrame.origin.x, type: "Int")
-            DebugState.shared.updateWatchVariable(name: "targetFrameY", value: targetFrame.origin.y, type: "Int")
+            baDebugState.shared.updateWatchVariable(name: "targetFrameX", value: targetFrame.origin.x, type: "Int")
+            baDebugState.shared.updateWatchVariable(name: "targetFrameY", value: targetFrame.origin.y, type: "Int")
         }
     }
 
     /// 期望的坐标点
     @Published var targetPosition: CGPoint = .zero {
         didSet {
-            DebugState.shared.updateWatchVariable(name: "targetPositionX", value: targetPosition.x, type: "Int")
-            DebugState.shared.updateWatchVariable(name: "targetPositionY", value: targetPosition.y, type: "Int")
+            baDebugState.shared.updateWatchVariable(name: "targetPositionX", value: targetPosition.x, type: "Int")
+            baDebugState.shared.updateWatchVariable(name: "targetPositionY", value: targetPosition.y, type: "Int")
         }
     }
 
     /// 是否需要更新窗口位置
     @Published var needUpdate = false {
         didSet {
-            DebugState.shared.updateWatchVariable(name: "needUpdate", value: needUpdate, type: "Bool")
+            baDebugState.shared.updateWatchVariable(name: "needUpdate", value: needUpdate, type: "Bool")
         }
     }
 
@@ -80,21 +80,21 @@ class baWindowManager: ObservableObject {
     /// 窗口动画模式
     @Published var windowMode: WindowMode = .direct {
         didSet {
-            DebugState.shared.updateWatchVariable(name: "windowMode", value: windowMode.rawValue, type: "String")
+            baDebugState.shared.updateWatchVariable(name: "windowMode", value: windowMode.rawValue, type: "String")
         }
     }
 
     /// 是否准备好吸附
     @Published var isReadyToSnap = false {
         didSet {
-            DebugState.shared.updateWatchVariable(name: "isReadyToSnap", value: isReadyToSnap, type: "Bool")
+            baDebugState.shared.updateWatchVariable(name: "isReadyToSnap", value: isReadyToSnap, type: "Bool")
         }
     }
 
     /// 窗口状态: 已吸附、已分离、拖拽中
     @Published var windowState: WindowState = .attached {
         didSet {
-            DebugState.shared.updateWatchVariable(name: "windowState", value: windowState.rawValue, type: "String")
+            baDebugState.shared.updateWatchVariable(name: "windowState", value: windowState.rawValue, type: "String")
         }
     }
 
@@ -184,7 +184,7 @@ extension baWindowManager {
             // 动画完成后设置为子窗口
             mainWindow.addChildWindow(currentWindow, ordered: .above)
             #if DEVELOPMENT
-            DebugState.shared.system("吸附完成")
+            baDebugState.shared.system("吸附完成")
             #endif
         })
 

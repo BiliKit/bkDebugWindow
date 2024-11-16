@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct ConfigurationView: View {
+struct baConfigurationView: View {
     @ObservedObject private var configManager = baConfigurationManager.shared
     @State private var windowConfig: DebugConfiguration.WindowConfig
     @State private var performanceConfig: DebugConfiguration.PerformanceConfig
