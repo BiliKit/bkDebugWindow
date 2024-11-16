@@ -1,11 +1,5 @@
-//
-//  baAppDelegate.swift
-//  testDebugWindow
-//
-//  Created by Iris on 2024-11-15.
-//
-
 import SwiftUI
+
 
 /// 应用程序代理
 /// 负责应用程序的生命周期管理
@@ -24,7 +18,7 @@ class baAppDelegate: NSObject, NSApplicationDelegate {
         let configureWindow = baConfigureWindowDelegate.shared.createConfigureWindow()
         // 设置窗口管理器
         manager.mainWindow = NSApplication.shared.windows.first
-        manager.debugWindow = debugWindow
+        manager.debugWindow = baDebugWindowDelegate.shared.debugWindow
         manager.configureWindow = configureWindow
 
         manager.mainWindow!.isMovableByWindowBackground=true
@@ -47,8 +41,8 @@ class baAppDelegate: NSObject, NSApplicationDelegate {
             width: manager.defaultDebugWindowWidth,
             height: mainWindowHeight!)
 
-        animateWindow(baDebugWindowDelegate.shared.debugWindow!, to: startFrame, duration: 0.0) {}
-        animateWindow(baDebugWindowDelegate.shared.debugWindow!, to: endFrame, duration: 0.45) {}
+        animateWindow(debugWindow, to: startFrame, duration: 0.0) {}
+        animateWindow(debugWindow, to: endFrame, duration: 0.45) {}
 
         manager.mainWindow?.addChildWindow(debugWindow, ordered: .above)
         #if DEVELOPMENT
@@ -324,10 +318,4 @@ func animateWindow(_ window: NSWindow, to frame: NSRect, duration: TimeInterval,
         context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
         window.animator().setFrame(frame, display: true)
     }, completionHandler: completion)
-}
-
-struct ObserverInfo {
-    let observer: NSObjectProtocol
-    let notificationName: NSNotification.Name
-    let description: String
 }

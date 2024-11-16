@@ -1,14 +1,8 @@
-//
-//  CapsuleButtonStyle.swift
-//  testDebugWindow
-//
-//  Created by Iris on 2024-11-15.
-//
-
 import SwiftUI
 
-// 添加自定义胶囊按钮样式
-struct CapsuleButtonStyle: ButtonStyle {
+
+/// 胶囊按钮样式
+struct baCapsuleButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 12))

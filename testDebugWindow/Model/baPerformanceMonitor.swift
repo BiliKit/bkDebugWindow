@@ -2,6 +2,7 @@ import Foundation
 import QuartzCore
 import CoreVideo
 
+
 /// 性能监控管理器
 class baPerformanceMonitor: ObservableObject {
     static let shared = baPerformanceMonitor()

@@ -1,5 +1,7 @@
 import Foundation
 
+
+/// 配置管理器
 class baConfigurationManager: ObservableObject {
     // 使用懒加载属性而不是闭包初始化
     private static var instance: baConfigurationManager?

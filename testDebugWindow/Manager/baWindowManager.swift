@@ -2,6 +2,8 @@ import AppKit
 import SwiftUI
 import Combine
 
+
+/// 窗口管理器
 class baWindowManager: ObservableObject {
     static let shared = baWindowManager()
 
@@ -42,7 +44,7 @@ class baWindowManager: ObservableObject {
     }
 
     /// 所有观察者
-    @Published var observers: [ObserverInfo] = []
+    @Published var observers: [baObserverInfo] = []
 
     /// debug window 贴合方向
     @Published var debugWindowSide: Side = .right {

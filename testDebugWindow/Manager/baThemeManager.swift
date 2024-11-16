@@ -1,5 +1,6 @@
 import SwiftUI
 
+
 /// 调试窗口主题
 struct DebugTheme {
     // 颜色
@@ -8,17 +9,17 @@ struct DebugTheme {
     var accentColor: Color
     var toolbarColor: Color
     var dividerColor: Color
-    
+
     // 字体
     var titleFont: Font
     var bodyFont: Font
     var monoFont: Font
-    
+
     // 尺寸
     var cornerRadius: CGFloat
     var padding: CGFloat
     var spacing: CGFloat
-    
+
     // 预定义主题
     static let light = DebugTheme(
         backgroundColor: Color(NSColor.windowBackgroundColor),
@@ -33,7 +34,7 @@ struct DebugTheme {
         padding: 8,
         spacing: 4
     )
-    
+
     static let dark = DebugTheme(
         backgroundColor: Color(hex: "1E1E1E"),
         textColor: Color.white,
@@ -50,11 +51,11 @@ struct DebugTheme {
 }
 
 /// 主题管理器
-class ThemeManager: ObservableObject {
-    static let shared = ThemeManager()
-    
+class baThemeManager: ObservableObject {
+    static let shared = baThemeManager()
+
     @Published var currentTheme: DebugTheme
-    
+
     private init() {
         // 根据系统外观选择主题
         if NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua {
@@ -62,7 +63,7 @@ class ThemeManager: ObservableObject {
         } else {
             currentTheme = .light
         }
-        
+
         // 监听系统外观变化
 //        NotificationCenter.default.addObserver(
 //            self,
@@ -71,7 +72,7 @@ class ThemeManager: ObservableObject {
 //            object: nil
 //        )
     }
-    
+
     @objc private func handleAppearanceChange() {
         DispatchQueue.main.async {
             if NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua {

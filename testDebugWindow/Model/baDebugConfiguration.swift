@@ -1,5 +1,6 @@
 import Foundation
 
+
 /// 调试窗口配置
 struct DebugConfiguration: Codable {
     // 窗口配置

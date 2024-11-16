@@ -4,13 +4,15 @@ import QuartzCore
 import Combine
 import Foundation
 
+
+/// 调试视图
 struct baDebugView: View {
     let windowId: String
     @StateObject private var manager = baWindowManager.shared
     @StateObject private var debugState = baDebugState.shared
     @State private var autoScroll = baDebugState.shared.autoScroll
     @State private var isPaused = baDebugState.shared.isPaused
-    @StateObject private var themeManager = ThemeManager.shared
+    @StateObject private var themeManager = baThemeManager.shared
     @StateObject private var performanceMonitor = baPerformanceMonitor.shared
     @StateObject private var keyboardManager = baKeyboardShortcutManager.shared
 
@@ -65,7 +67,7 @@ struct baDebugView: View {
 
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .frame(minWidth: 350)
-        .background(VisualEffectView().ignoresSafeArea())
+        .background(baVisualEffectView().ignoresSafeArea())
         .allowsHitTesting(true)
         .onAppear {
             #if DEVELOPMENT
@@ -96,10 +98,10 @@ struct baDebugView: View {
 }
 
 // MARK: - 单条消息行视图
-struct MessageRow: View {
+struct baMessageRow: View {
     @ObservedObject var debugState: baDebugState = .shared
-    let message: DebugMessage
-    @StateObject private var themeManager = ThemeManager.shared
+    let message: baDebugMessage
+    @StateObject private var themeManager = baThemeManager.shared
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -162,7 +164,7 @@ struct MessageRow: View {
 }
 
 // MARK: - 添加监视变量行视图
-struct WatchVariableRow: View {
+struct baWatchVariableRow: View {
     let variable: WatchVariable
     @ObservedObject var debugState: baDebugState = .shared
 
@@ -231,7 +233,7 @@ struct WatchVariableRow: View {
         .frame(height: 16)
     }
 }
-private struct WatchVariableView: View {
+private struct baWatchVariableView: View {
     let variable: WatchVariable
 
     var body: some View {
@@ -394,7 +396,7 @@ extension baDebugView {
 // MARK: - 消息过滤函数
 extension baDebugView{
     /// 过滤后的消息列表
-    private var filteredMessages: [DebugMessage] {
+    private var filteredMessages: [baDebugMessage] {
         let messages = debugState.filteredMessages()
         if debugState.searchText.isEmpty {
             return messages
@@ -422,7 +424,7 @@ extension baDebugView {
             ScrollView(.vertical, showsIndicators: false) { // 禁用滚动条
                 LazyVStack(alignment: .leading, spacing: 1) {
                     ForEach(filteredMessages) { message in
-                        MessageRow(message: message)
+                        baMessageRow(message: message)
                             .id(message.id)
                     }
                 }
@@ -476,7 +478,7 @@ extension baDebugView {
                     // 阻止事件传递
                     NSApp.stopModal()
                 })
-                .buttonStyle(CapsuleButtonStyle())
+                .buttonStyle(baCapsuleButtonStyle())
                 .help("复位调试窗口")
 
                 // 消息类型选择器
@@ -517,7 +519,7 @@ extension baDebugView {
                     }
                 }
                 .animation(.spring(duration: 0.3), value: debugState.selectedMessageType)
-                .buttonStyle(CapsuleButtonStyle())
+                .buttonStyle(baCapsuleButtonStyle())
                 .help("筛选消息类型")
 
                 // 详情显示开关
@@ -532,20 +534,20 @@ extension baDebugView {
                     .padding(.horizontal,0.5)
                         .foregroundStyle(debugState.showDetails ? .blue : .secondary)
                 }
-                .buttonStyle(CapsuleButtonStyle())
+                .buttonStyle(baCapsuleButtonStyle())
                 .help("显示/隐藏详情")
 
                 // 清除按钮
                 Button(action: { debugState.clearMessages() }) {
                     Image(systemName: "trash")
                 }
-                .buttonStyle(CapsuleButtonStyle())
+                .buttonStyle(baCapsuleButtonStyle())
                 .help("清除所有消息")
 
                 Button(action: { debugState.exportCurrentMessages() }) {
                     Image(systemName: "square.and.arrow.up")
                 }
-                .buttonStyle(CapsuleButtonStyle())
+                .buttonStyle(baCapsuleButtonStyle())
                 .help("导出日志")
 
                 // 模式切换按钮
@@ -556,7 +558,7 @@ extension baDebugView {
                 } label: {
                     Image(systemName: manager.windowMode == .animation ? "sparkles" : "bolt.fill")
                 }
-                .buttonStyle(CapsuleButtonStyle())
+                .buttonStyle(baCapsuleButtonStyle())
                 .help(manager.windowMode == .animation ? "动画模式" : "直接模式")
 
                 // 监视面板开关
@@ -567,7 +569,7 @@ extension baDebugView {
                 }) {
                     Image(systemName: debugState.showWatchPanel ? "eye.slash" : "eye")
                 }
-                .buttonStyle(CapsuleButtonStyle())
+                .buttonStyle(baCapsuleButtonStyle())
                 .help("显示/隐藏监视面板")
 
                 Button(action: {
@@ -575,7 +577,7 @@ extension baDebugView {
                 }) {
                     Image(systemName: "gearshape")
                 }
-                .buttonStyle(CapsuleButtonStyle())
+                .buttonStyle(baCapsuleButtonStyle())
                 .help("打开配置窗口")
 
                 Spacer()
@@ -667,7 +669,7 @@ extension baDebugView {
                     GridItem(.flexible())
                 ], spacing: 8) {
                     ForEach(debugState.watchVariables) { variable in
-                        WatchVariableView(variable: variable)
+                        baWatchVariableView(variable: variable)
                     }
                 }
                 .padding(8)

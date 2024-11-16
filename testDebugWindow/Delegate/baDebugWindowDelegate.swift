@@ -1,6 +1,8 @@
 import AppKit
 import SwiftUI
 
+
+/// 调试窗口的代理
 class baDebugWindowDelegate: NSObject, NSWindowDelegate {
     // MARK: - Properties
     static let shared = baDebugWindowDelegate()
@@ -108,6 +110,10 @@ extension baDebugWindowDelegate {
     func windowDidBecomeKey(_ notification: Notification) {
         guard let window = notification.object as? NSWindow else { return }
         handleWindowActivation(window)
+    }
+
+    func windowDidMove(_ notification: Notification){
+        baDebugState.shared.system("did move")
     }
 
     // MARK: - Window State Management

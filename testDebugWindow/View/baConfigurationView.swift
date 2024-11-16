@@ -1,5 +1,7 @@
 import SwiftUI
 
+
+/// 配置视图
 struct baConfigurationView: View {
     @ObservedObject private var configManager = baConfigurationManager.shared
     @State private var windowConfig: DebugConfiguration.WindowConfig
@@ -64,7 +66,7 @@ struct baConfigurationView: View {
                 saveAllConfigs()
                 baConfigureWindowDelegate.shared.hideConfigureWindow()
             }
-            .buttonStyle(CapsuleButtonStyle())
+            .buttonStyle(baCapsuleButtonStyle())
         }
         .padding()
     }

@@ -1,24 +1,19 @@
-//
-//  MainWindowView.swift
-//  testDebugWindow
-//
-//  Created by Iris on 2024-11-12.
-//
-
 import SwiftUI
 import AppKit
 
+
+/// 主窗口视图
 struct baMainWindowView: View {
     let windowId: String
 
+    /// 调试状态对象
+    @ObservedObject var debugState: baDebugState = .shared
     @ObservedObject var manager = baWindowManager.shared
     @State private var counter = 0 {
         didSet {
             debugState.updateWatchVariable(name: "counter", value: counter, type: "Int")
         }
     }
-    /// 调试状态对象
-    @ObservedObject var debugState: baDebugState = .shared
 
     var body: some View {
         VStack(spacing: 20) {
@@ -31,20 +26,20 @@ struct baMainWindowView: View {
                 Button("增加计数") {
                     incrementCounter()
                 }
-                .buttonStyle(MainWindowButtonStyle())
+                .buttonStyle(baMainWindowButtonStyle())
 
                 // 重置窗口位置按钮
                 Button("重置窗口位置") {
                     manager.snapDebugWindowToMain()
                 }
-                .buttonStyle(MainWindowButtonStyle())
+                .buttonStyle(baMainWindowButtonStyle())
 
                 Button("切换动画模式") {
                     withAnimation {
                         manager.windowMode = manager.windowMode == .animation ? .direct : .animation
                     }
                 }
-                .buttonStyle(MainWindowButtonStyle(color: .blue))
+                .buttonStyle(baMainWindowButtonStyle(color: .blue))
                 Button("显示调试窗口") {
                     withAnimation {
                       if manager.debugWindow?.isVisible ?? false {
@@ -55,7 +50,7 @@ struct baMainWindowView: View {
                       }
                     }
                 }
-                .buttonStyle(MainWindowButtonStyle(color: .blue))
+                .buttonStyle(baMainWindowButtonStyle(color: .blue))
                 Button("测试信息") {
                     // 添加应用信息
                     let bundle = Bundle.main
@@ -70,7 +65,7 @@ struct baMainWindowView: View {
                     )
                     #endif
                 }
-                .buttonStyle(MainWindowButtonStyle(color: .red))
+                .buttonStyle(baMainWindowButtonStyle(color: .red))
             }
             .padding()
 

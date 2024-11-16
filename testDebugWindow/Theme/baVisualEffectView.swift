@@ -1,14 +1,9 @@
-//
-//  VisualEffectView.swift
-//  testDebugWindow
-//
-//  Created by Iris on 2024-11-14.
-//
-
 import Foundation
 import SwiftUI
 
-struct VisualEffectView: NSViewRepresentable {
+
+/// 毛玻璃视图
+struct baVisualEffectView: NSViewRepresentable {
     func makeNSView(context _: Context) -> NSVisualEffectView {
         let effectView = NSVisualEffectView()
         effectView.state = .active

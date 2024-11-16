@@ -1,6 +1,8 @@
 import AppKit
 import SwiftUI
 
+
+/// 配置窗口的代理
 class baConfigureWindowDelegate: NSObject, NSWindowDelegate, NSPopoverDelegate {
     // MARK: - Properties
     static let shared = baConfigureWindowDelegate()

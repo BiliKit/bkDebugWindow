@@ -33,7 +33,7 @@ class baDebugState: ObservableObject {
     /// 是否暂停
     @Published var isPaused: Bool = false
     /// 调试消息数组
-    @Published private(set) var debugMessages: [DebugMessage] = []
+    @Published private(set) var debugMessages: [baDebugMessage] = []
     /// 消息统计信息
     @Published private(set) var messageStats: [DebugMessageType: Int] = [:]
     /// 监视变量数组
@@ -48,7 +48,7 @@ class baDebugState: ObservableObject {
     /// 最大消息数量
     private let maxMessages: Int
     /// 消息批处理队列
-    private var messageBatch: [DebugMessage] = []
+    private var messageBatch: [baDebugMessage] = []
     /// 批处理计时器
     private var batchTimer: Timer?
     /// 最后一次清理时间
@@ -62,7 +62,7 @@ class baDebugState: ObservableObject {
         self.maxMessages = maxMessages
 
         // 添加初始化信息
-        self.debugMessages.append(DebugMessage(
+        self.debugMessages.append(baDebugMessage(
             type: .system,
             content: "正在初始化debugState...",
             details: "maxMessages: \(maxMessages)"
@@ -74,7 +74,7 @@ class baDebugState: ObservableObject {
         self.setupCleanupTimer()
         DispatchQueue.main.async {
             self.isInitialized = true
-            self.debugMessages.append(DebugMessage(
+            self.debugMessages.append(baDebugMessage(
                 type: .system,
                 content: "初始化debugState完成",
                 details: "isInitialized: \(self.isInitialized)"
@@ -159,7 +159,7 @@ class baDebugState: ObservableObject {
     }
 
     /// 导出旧消息
-    private func exportOldMessages(_ messages: [DebugMessage]) {
+    private func exportOldMessages(_ messages: [baDebugMessage]) {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
         let fileName = "debug_log_\(dateFormatter.string(from: Date())).json"
@@ -197,7 +197,7 @@ class baDebugState: ObservableObject {
                 print("DebugState: Failed to add message - self is nil")
                 return
             }
-            let message = DebugMessage(type: type, content: content, details: details)
+            let message = baDebugMessage(type: type, content: content, details: details)
 
             DispatchQueue.main.async {
                 self.messageBatch.append(message)
@@ -212,7 +212,7 @@ class baDebugState: ObservableObject {
     }
 
     /// 获取过滤后的消息列表
-    func filteredMessages() -> [DebugMessage] {
+    func filteredMessages() -> [baDebugMessage] {
         var messages = debugMessages
 
         if let selectedType = selectedMessageType {
@@ -254,7 +254,7 @@ class baDebugState: ObservableObject {
 
     // 添加重置方法
     func reset() {
-        self.debugMessages.append(DebugMessage(
+        self.debugMessages.append(baDebugMessage(
             type: .system,
             content: "DebugState reset initiated",
             details: "Previous message count: \(debugMessages.count)"
@@ -267,7 +267,7 @@ class baDebugState: ObservableObject {
             self.isInitialized = true
 
             // 添加重置完成信息
-            self.debugMessages.append(DebugMessage(
+            self.debugMessages.append(baDebugMessage(
                 type: .system,
                 content: "DebugState reset completed",
                 details: """
@@ -281,7 +281,7 @@ class baDebugState: ObservableObject {
     }
 
     deinit {
-        self.debugMessages.append(DebugMessage(
+        self.debugMessages.append(baDebugMessage(
             type: .system,
             content: "DebugState deinitializing",
             details: "Final message count: \(debugMessages.count)"
@@ -390,7 +390,7 @@ class baDebugState: ObservableObject {
     }
 
     /// 导出指定的消息
-    func exportMessages(_ messages: [DebugMessage], to fileName: String) throws {
+    func exportMessages(_ messages: [baDebugMessage], to fileName: String) throws {
         let fileManager = FileManager.default
         guard let documentDirectory = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
             throw NSError(domain: "DebugState", code: -1, userInfo: [NSLocalizedDescriptionKey: "无法获取文档目录"])
@@ -515,7 +515,7 @@ enum DebugMessageType: String, CaseIterable, Codable {
 }
 
 /// 调试消息结构体
-struct DebugMessage: Identifiable, Hashable, Codable {
+struct baDebugMessage: Identifiable, Hashable, Codable {
     /// 唯一标识符
     let id: UUID
     /// 消息时间戳
@@ -558,7 +558,7 @@ struct DebugMessage: Identifiable, Hashable, Codable {
     }
 
     /// Equatable协议实现
-    static func == (lhs: DebugMessage, rhs: DebugMessage) -> Bool {
+    static func == (lhs: baDebugMessage, rhs: baDebugMessage) -> Bool {
         lhs.id == rhs.id
     }
 
