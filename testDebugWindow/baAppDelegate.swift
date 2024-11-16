@@ -7,6 +7,9 @@
 
 import SwiftUI
 
+/// 应用程序代理
+/// 负责应用程序的生命周期管理
+/// 处理window delegate做不到的事情
 class baAppDelegate: NSObject, NSApplicationDelegate {
     var windowMonitor: Any?
     var resizeObserver: NSObjectProtocol?
@@ -14,30 +17,20 @@ class baAppDelegate: NSObject, NSApplicationDelegate {
 
     let currentScreen = NSScreen.main ?? NSScreen.screens.first
 
+    /// 应用程序完成启动，进行debug window 等的初始化
     func applicationDidFinishLaunching(_ notification: Notification) {
 
         let debugWindow = baDebugWindowDelegate.shared.createDebugWindow()
-
+        let configureWindow = baConfigureWindowDelegate.shared.createConfigureWindow()
         // 设置窗口管理器
         manager.mainWindow = NSApplication.shared.windows.first
         manager.debugWindow = debugWindow
+        manager.configureWindow = configureWindow
 
-        // 配置两个窗口
-        let windows = [NSApplication.shared.windows.first, debugWindow].compactMap { $0 }
+        manager.mainWindow!.isMovableByWindowBackground=true
 
-        for (_, window) in windows.enumerated() {
-            // 配置窗口
-            window.isMovableByWindowBackground = true
-            window.titlebarAppearsTransparent = true
-            window.styleMask.insert(.fullSizeContentView)
-
-            // 启用层支持
-            window.contentView?.wantsLayer = true
-            window.contentView?.layerContentsRedrawPolicy = .onSetNeedsDisplay
-
-            // 设置窗口动画行为
-            window.animationBehavior = .documentWindow
-        }
+        setupWindowDragAndSnapMonitor()
+        setupMainWindowObserver()
 
         let mainWindowHeight = manager.mainWindow?.frame.size.height
         let mainWindowMaxX = manager.mainWindow?.frame.maxX
@@ -54,95 +47,30 @@ class baAppDelegate: NSObject, NSApplicationDelegate {
             width: manager.defaultDebugWindowWidth,
             height: mainWindowHeight!)
 
-        animateWindow(debugWindow, to: startFrame, duration: 0.0) {}
-        animateWindow(debugWindow, to: endFrame, duration: 0.45) {}
+        animateWindow(baDebugWindowDelegate.shared.debugWindow!, to: startFrame, duration: 0.0) {}
+        animateWindow(baDebugWindowDelegate.shared.debugWindow!, to: endFrame, duration: 0.45) {}
 
         manager.mainWindow?.addChildWindow(debugWindow, ordered: .above)
         #if DEVELOPMENT
         DebugState.shared.system("debugWindow 已绑定为 mainWindow 子窗口")
         #endif
 
-        setupWindowDragAndSnapMonitor()
-        setupWindowResizeSyncMonitor()
-
         // 显示调试窗口
         debugWindow.makeKeyAndOrderFront(nil)
-
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handleWindowBecomeKey),
-            name: NSWindow.didBecomeKeyNotification,
-            object: nil
-        )
-    }
-    @objc func handleWindowBecomeKey(_ notification: Notification) {
-        guard let window = notification.object as? NSWindow else { return }
-        manager.activeWindow = window
-        #if DEVELOPMENT
-        if window == manager.debugWindow {
-            DebugState.shared.system("debug window 被激活", details: """
-                Identifier: \(window.identifier?.rawValue ?? "none")
-                FileName: \((#file as NSString).lastPathComponent)
-                FileID: \(#fileID)
-                Function: \(#function)
-                Line: \(#line)
-                """)
-        }
-        #endif
     }
 
-    func animateWindow(_ window: NSWindow, to frame: NSRect, duration: TimeInterval, completion: (() -> Void)? = nil) {
-        NSAnimationContext.runAnimationGroup(
-            {
-                context in
-                context.duration = duration
-                context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-                window.animator().setFrame(frame, display: true)
-            }, completionHandler: completion)
+    /// 应用程序退出时，移除监听器
+    func applicationWillTerminate(_ notification: Notification) {
+        removeObservers()
     }
 
-    /// 关闭最后一个窗口后退出
-    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        return true
-    }
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
+}
 
-    /// 初始化调试窗口
-    ///
-    /// 调试窗口的初始化配置:
-    /// - 位置: 屏幕最右侧
-    /// - 高度: 与主窗口相同
-    /// - 界面元素:
-    ///   - 隐藏标题栏
-    ///   - 隐藏关闭按钮
-    ///   - 隐藏最小化按钮
-    ///   - 隐藏缩放按钮
-    func initDebugWindow() -> NSWindow {
+// MARK: - 调试信息窗口
+extension baAppDelegate {
 
-        let screenMaxX = currentScreen?.visibleFrame.maxX
-        let screenMinY = currentScreen?.visibleFrame.minY
-
-        let debugWindow = NSWindow(
-            contentRect: NSRect(x: screenMaxX!, y: screenMinY!, width: 0, height: 0),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable],
-            backing: .buffered,
-            defer: false
-        )
-
-        // 创建调试窗口
-        debugWindow.contentView = NSHostingView(rootView: debugView(windowId: manager.debugWindowName))
-        debugWindow.titlebarAppearsTransparent = true
-        debugWindow.titleVisibility = .visible
-        debugWindow.standardWindowButton(.closeButton)?.isHidden = true
-        debugWindow.standardWindowButton(.miniaturizeButton)?.isHidden = true
-        debugWindow.standardWindowButton(.zoomButton)?.isHidden = true
-        debugWindow.isMovableByWindowBackground = true
-        debugWindow.title = manager.debugWindowName
-        debugWindow.identifier = NSUserInterfaceItemIdentifier(rawValue: manager.debugWindowName)
-
-        return debugWindow
-    }
-
-    /// 设置调试信息窗口拖拽和吸附监听器
+    /// 设置调试信息窗口鼠标事件监听器
     func setupWindowDragAndSnapMonitor() {
         // 监听调试窗口的拖拽
         windowMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .leftMouseDragged, .leftMouseUp]) { [weak self] event in
@@ -155,14 +83,6 @@ class baAppDelegate: NSObject, NSApplicationDelegate {
 
             return self.handleDebugWindowDrag(event, debugWindow: debugWindow, mainWindow: mainWindow)
         }
-
-        // 监听主窗口的拖拽
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(handleMainWindowMove(_:)),
-            name: NSWindow.didMoveNotification,
-            object: manager.mainWindow
-        )
     }
 
     /// 处理调试窗口的拖拽事件
@@ -261,18 +181,58 @@ class baAppDelegate: NSObject, NSApplicationDelegate {
         }
 
         // 执行吸附动画
-        NSAnimationContext.runAnimationGroup({ context in
-            context.duration = 0.24
-            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-            debugWindow.animator().setFrame(newFrame, display: true)
-        }, completionHandler: {
+        animateWindow(debugWindow, to: newFrame, duration: 0.24){
             mainWindow.addChildWindow(debugWindow, ordered: .above)
             #if DEVELOPMENT
             DebugState.shared.system("执行吸附动画并设置为子窗口")
             #endif
-        })
+        }
 
         manager.windowState = .attached
+    }
+
+    /// 移除监听器
+    private func removeObservers() {
+        if let monitor = windowMonitor {
+            NSEvent.removeMonitor(monitor)
+        }
+
+        // 移除大小变化观察者
+        if let observer = resizeObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+
+        for observerInfo in manager.observers {
+            NotificationCenter.default.removeObserver(observerInfo.observer)
+            print("移除 \(observerInfo.description): \(observerInfo.notificationName)")
+        }
+    }
+}
+
+// MARK: - 监听主窗口移动，大小变化
+extension baAppDelegate {
+    /// 设置主窗口监听器
+    private func setupMainWindowObserver() {
+        setupMainWindowMoveObserver()
+        setupMainWindowResizeObserver()
+    }
+
+    /// 设置主窗口移动监听器
+    private func setupMainWindowMoveObserver() {
+        let baMainWindowObserver: NSObjectProtocol = NotificationCenter.default.addObserver(
+            forName: NSWindow.didMoveNotification,
+            object: manager.mainWindow,
+            queue: .main) { [weak self] notification in
+                self?.handleMainWindowMove(notification)
+        }
+        manager.observers.append(.init(
+            observer: baMainWindowObserver,
+            notificationName: NSWindow.didMoveNotification,
+            description: "主窗口移动"
+        ))
+        #if DEVELOPMENT
+        DebugState.shared.system("设置主窗口移动监听器")
+        #endif
     }
 
     /// 处理主窗口移动事件
@@ -298,9 +258,9 @@ class baAppDelegate: NSObject, NSApplicationDelegate {
         // }
 
         if manager.debugWindowSide == .left {
-            newFrame.origin.x = mainWindow.frame.minX - debugWindow.frame.width - 1
+            newFrame.origin.x = mainWindow.frame.minX - debugWindow.frame.width - manager.debugWindowMainWindowSpacing
         } else {
-            newFrame.origin.x = mainWindow.frame.maxX + 1
+            newFrame.origin.x = mainWindow.frame.maxX + manager.debugWindowMainWindowSpacing
         }
 
         newFrame.origin.y = mainWindow.frame.minY
@@ -308,52 +268,66 @@ class baAppDelegate: NSObject, NSApplicationDelegate {
         debugWindow.setFrame(newFrame, display: true)
     }
 
-    func setupWindowResizeSyncMonitor() {
+    /// 设置主窗口大小变化监听器
+    private func setupMainWindowResizeObserver() {
         resizeObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.didResizeNotification,
             object: manager.mainWindow,
             queue: .main
         ) { [weak self] notification in
-            guard let mainWindow = notification.object as? NSWindow,
-                  let debugWindow = self?.manager.debugWindow,
-                  debugWindow.parent != nil else { return }
-
-            var newFrame = debugWindow.frame
-            newFrame.size.height = mainWindow.frame.height
-
-            // 判断 debugWindow 在主窗口的哪一侧
-            if debugWindow.frame.minX < mainWindow.frame.minX {
-                // debugWindow 在左侧
-                newFrame.origin.x = mainWindow.frame.minX - debugWindow.frame.width - 1
-            } else {
-                // debugWindow 在右侧
-                newFrame.origin.x = mainWindow.frame.maxX + 1
-            }
-            newFrame.origin.y = mainWindow.frame.minY
-
-            if self?.manager.windowMode == .animation {
-                // 使用动画调整位置和大小
-                NSAnimationContext.runAnimationGroup { context in
-                    context.duration = 0.4
-                    context.timingFunction = CAMediaTimingFunction(name: .linear)
-                    debugWindow.animator().setFrame(newFrame, display: true)
-                }
-            } else {
-                // 直接设置 frame，不使用动画
-                debugWindow.setFrame(newFrame, display: true)
-            }
+            self?.handleMainWindowResize(notification)
         }
+        manager.observers.append(.init(
+            observer: resizeObserver!,
+            notificationName: NSWindow.didResizeNotification,
+            description: "主窗口大小变化"
+        ))
+        #if DEVELOPMENT
+        DebugState.shared.system("设置主窗口大小变化监听器")
+        #endif
     }
 
-    deinit {
-        // 移除监听器
-        if let monitor = windowMonitor {
-            NSEvent.removeMonitor(monitor)
-        }
+    /// 处理主窗口大小变化事件
+    /// 主窗口大小变化时，如果 debug window 是子窗口，则更新 debug window 的位置
+    /// 否则，不做任何操作
+    private func handleMainWindowResize(_ notification: Notification) {
+        guard let mainWindow = notification.object as? NSWindow,
+              let debugWindow = manager.debugWindow,
+              debugWindow.parent != nil else { return }
 
-        // 移除大小变化观察者
-        if let observer = resizeObserver {
-            NotificationCenter.default.removeObserver(observer)
+        var newFrame = debugWindow.frame
+        newFrame.size.height = mainWindow.frame.height
+
+        // 判断 debugWindow 在主窗口的哪一侧
+        if manager.debugWindowSide == .left { // debugWindow 在左侧
+            newFrame.origin.x = mainWindow.frame.minX
+                                - debugWindow.frame.width
+                                - manager.debugWindowMainWindowSpacing
+        } else { // debugWindow 在右侧
+            newFrame.origin.x = mainWindow.frame.maxX
+                                + manager.debugWindowMainWindowSpacing
+        }
+        newFrame.origin.y = mainWindow.frame.minY
+
+        if manager.windowMode == .animation {
+            animateWindow(debugWindow, to: newFrame, duration: 0.4)
+        } else {
+            debugWindow.setFrame(newFrame, display: true)
         }
     }
+}
+
+func animateWindow(_ window: NSWindow, to frame: NSRect, duration: TimeInterval, completion: (() -> Void)? = nil) {
+    NSAnimationContext.runAnimationGroup({
+        context in
+        context.duration = duration
+        context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        window.animator().setFrame(frame, display: true)
+    }, completionHandler: completion)
+}
+
+struct ObserverInfo {
+    let observer: NSObjectProtocol
+    let notificationName: NSNotification.Name
+    let description: String
 }

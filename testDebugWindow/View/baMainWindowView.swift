@@ -10,6 +10,7 @@ import AppKit
 
 struct MainWindowView: View {
     let windowId: String
+
     @ObservedObject var manager = baWindowManager.shared
     @State private var counter = 0 {
         didSet {
@@ -125,11 +126,5 @@ extension MainWindowView {
         } else {
             return "已分离"
         }
-    }
-}
-
-extension MainWindowView {
-    private func resetWindowPositions() {
-        // 重置窗口位置的逻辑可以后续添加
     }
 }

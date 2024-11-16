@@ -141,27 +141,6 @@ class DebugState: ObservableObject {
     /// 监视变量数组
     @Published private(set) var watchVariables: [WatchVariable] = []
 
-    // 添加窗口状态结构体
-    struct WindowState {
-        var position: NSPoint = .zero
-        var size: NSSize = .zero
-        var isAnimating: Bool = false
-        var targetPosition: NSPoint?
-        var isProgrammaticMove: Bool = false
-    }
-
-    // 添加窗口状态属性
-    @Published private(set) var windowState = WindowState() {
-        didSet {
-            updateWatchVariable(name: "windowState", value: windowState, type: "String")
-            debugMessages.append(DebugMessage(
-                type: .system,
-                content: "windowState updated",
-                details: "windowState: \(windowState)"
-            ))
-        }
-    }
-
     // MARK: - 私有属性
 
     /// 消息处理队列
@@ -475,57 +454,6 @@ class DebugState: ObservableObject {
             value: variable.valueString,
             type: variable.type
         )
-    }
-
-    // 添加更窗口状态的方法
-    func updateWindowState(
-        position: NSPoint? = nil,
-        size: NSSize? = nil,
-        isAnimating: Bool? = nil,
-        targetPosition: NSPoint? = nil,
-        isProgrammaticMove: Bool? = nil
-    ) {
-        DispatchQueue.main.async {
-            if let position = position {
-                self.windowState.position = position
-            }
-            if let size = size {
-                self.windowState.size = size
-            }
-            if let isAnimating = isAnimating {
-                self.windowState.isAnimating = isAnimating
-            }
-            if let targetPosition = targetPosition {
-                self.windowState.targetPosition = targetPosition
-            }
-            if let isProgrammaticMove = isProgrammaticMove {
-                self.windowState.isProgrammaticMove = isProgrammaticMove
-            }
-
-            // 添加到监视变量
-            self.updateWatchVariable(
-                name: "windowPosition",
-                value: "(\(Int(self.windowState.position.x)), \(Int(self.windowState.position.y)))",
-                type: "Window"
-            )
-            if let target = self.windowState.targetPosition {
-                self.updateWatchVariable(
-                    name: "targetPosition",
-                    value: "(\(Int(target.x)), \(Int(target.y)))",
-                    type: "Window"
-                )
-            }
-            self.updateWatchVariable(
-                name: "isAnimating",
-                value: self.windowState.isAnimating,
-                type: "Window"
-            )
-            self.updateWatchVariable(
-                name: "isProgrammaticMove",
-                value: self.windowState.isProgrammaticMove,
-                type: "Window"
-            )
-        }
     }
 
     /// 导出当前消息

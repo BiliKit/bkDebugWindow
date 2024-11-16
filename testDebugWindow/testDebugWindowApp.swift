@@ -15,6 +15,11 @@ struct testDebugWindowApp: App {
     var body: some Scene {
          WindowGroup {
              MainWindowView(windowId: "MainWindow")
+             .frame(width: 400, height: 500)
+            // ConfigurationView()
+            // .frame(width: 300)
          }
+         .windowResizability(.contentSize)
+         .windowStyle(.hiddenTitleBar)
     }
 }

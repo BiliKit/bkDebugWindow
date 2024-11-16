@@ -570,6 +570,14 @@ extension debugView {
                 .buttonStyle(CapsuleButtonStyle())
                 .help("显示/隐藏监视面板")
 
+                Button(action: {
+                    baConfigureWindowDelegate.shared.showConfigureWindow()
+                }) {
+                    Image(systemName: "gearshape")
+                }
+                .buttonStyle(CapsuleButtonStyle())
+                .help("打开配置窗口")
+
                 Spacer()
             }
 
