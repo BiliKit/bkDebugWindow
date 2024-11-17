@@ -4,17 +4,17 @@ import Foundation
 /// 配置管理器
 class baConfigurationManager: ObservableObject {
     // 使用懒加载属性而不是闭包初始化
-    private static var instance: baConfigurationManager?
+//    private static var instance: baConfigurationManager?
+//
+//    static var shared: baConfigurationManager {
+//        if instance == nil {
+//            instance = baConfigurationManager()
+//        }
+//        return instance!
+//    }
+    static let shared = baConfigurationManager()
 
-    static var shared: baConfigurationManager {
-        if instance == nil {
-            instance = baConfigurationManager()
-        }
-        return instance!
-    }
-
-    @Published private(set) var config: DebugConfiguration
-    private let configFileName = "debug_config.json"
+    @Published private(set) var config: baConfiguration
 
     private init() {
         print("ConfigurationManager: Initializing...")
@@ -30,9 +30,11 @@ class baConfigurationManager: ObservableObject {
 
         print("ConfigurationManager: Initialization completed")
     }
+}
 
-    // MARK: - 配置文件操作
-
+// MARK: - 配置文件操作
+extension baConfigurationManager {
+    
     /// 获取配置文件路径
     private var configFileURL: URL? {
         do {
@@ -46,9 +48,11 @@ class baConfigurationManager: ObservableObject {
             print("ConfigurationManager: Bundle ID - \(bundleID)")
             print("ConfigurationManager: App Support - \(appSupport)")
             let appFolder = appSupport.appendingPathComponent(bundleID)
-            return appFolder.appendingPathComponent(configFileName)
+            return appFolder.appendingPathComponent(config.configFileName)
         } catch {
-            print("ConfigurationManager: Failed to get config file URL - \(error)")
+            print(
+                "ConfigurationManager: Failed to get config file URL - \(error)"
+            )
             return nil
         }
     }
@@ -83,19 +87,20 @@ class baConfigurationManager: ObservableObject {
 
             // 读取配置文件
             let data = try Data(contentsOf: fileURL)
-            let config = try JSONDecoder().decode(DebugConfiguration.self, from: data)
+            let config = try JSONDecoder().decode(
+                baConfiguration.self, from: data)
             self.config = config
         } catch {
             #if DEBUG
-            print("Failed to load configuration: \(error)")
+                print("Failed to load configuration: \(error)")
             #endif
         }
     }
 
     /// 保存配置
-    func saveConfiguration(_ config: DebugConfiguration) throws {
+    func saveConfiguration(_ config: baConfiguration) throws {
         guard let fileURL = configFileURL else {
-            throw ConfigurationError.invalidPath
+            throw baConfigurationError.invalidPath
         }
 
         do {
@@ -103,37 +108,32 @@ class baConfigurationManager: ObservableObject {
             try data.write(to: fileURL)
             self.config = config
         } catch {
-            throw ConfigurationError.saveFailed(error)
+            throw baConfigurationError.saveFailed(error)
         }
     }
+}
 
-    // MARK: - 配置更新方法
+// MARK: - 配置更新方法
+extension baConfigurationManager {
 
     /// 更新窗口配置
-    func updateWindowConfig(_ config: DebugConfiguration.WindowConfig) {
+    func updateWindowConfig(_ config: baConfiguration.WindowConfig) {
         var newConfig = self.config
         newConfig.window = config
         try? saveConfiguration(newConfig)
     }
 
     /// 更新性能监控配置
-    func updatePerformanceConfig(_ config: DebugConfiguration.PerformanceConfig) {
+    func updatePerformanceConfig(_ config: baConfiguration.PerformanceConfig) {
         var newConfig = self.config
         newConfig.performance = config
         try? saveConfiguration(newConfig)
     }
 
     /// 更新日志配置
-    func updateLogConfig(_ config: DebugConfiguration.LogConfig) {
+    func updateLogConfig(_ config: baConfiguration.LogConfig) {
         var newConfig = self.config
         newConfig.log = config
         try? saveConfiguration(newConfig)
     }
-}
-
-// MARK: - 错误定义
-enum ConfigurationError: Error {
-    case invalidPath
-    case saveFailed(Error)
-    case loadFailed(Error)
 }

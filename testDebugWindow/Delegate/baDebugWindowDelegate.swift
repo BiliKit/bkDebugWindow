@@ -11,11 +11,11 @@ class baDebugWindowDelegate: NSObject, NSWindowDelegate {
     var debugWindow: NSWindow?
 
     // 窗口配置
-    private var windowConfig: DebugConfiguration.WindowConfig {
+    private var windowConfig: baConfiguration.WindowConfig {
         configManager.config.window
     }
 
-    // MARK: - 初始化调试窗口
+    // MARK: - 创建调试窗口
     ///
     /// 调试窗口的初始化配置:
     /// - 位置: 屏幕最右侧
@@ -109,7 +109,6 @@ extension baDebugWindowDelegate {
 
     func windowDidBecomeKey(_ notification: Notification) {
         guard let window = notification.object as? NSWindow else { return }
-        baDebugState.shared.system("debug window did become key")
         manager.activeWindow = window
         handleWindowActivation(window)
     }
@@ -174,7 +173,7 @@ extension baDebugWindowDelegate {
         manager.activeWindow = window
         #if DEVELOPMENT
         if window == manager.debugWindow {
-            baDebugState.shared.system("debug window 被激活", details: """
+            baDebugState.shared.system("debug window did become key", details: """
                 Identifier: \(window.identifier?.rawValue ?? "none")
                 FileName: \((#file as NSString).lastPathComponent)
                 FileID: \(#fileID)

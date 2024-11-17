@@ -51,7 +51,7 @@ class baAppDelegate: NSObject, NSApplicationDelegate {
 
         manager.mainWindow?.addChildWindow(debugWindow, ordered: .above)
         #if DEVELOPMENT
-        baDebugState.shared.system("debugWindow 已绑定为 mainWindow 子窗口")
+            baDebugState.shared.system("debugWindow bind to mainWindow")
         #endif
 
         // 显示调试窗口
@@ -237,7 +237,7 @@ extension baAppDelegate {
     /// 处理主窗口移动事件
     /// 主窗口移动时，如果 debug window 是子窗口，则更新 debug window 的位置
     /// 否则，不做任何操作
-    @objc private func handleMainWindowMove(_ notification: Notification) {
+    private func handleMainWindowMove(_ notification: Notification) {
         guard let mainWindow = notification.object as? NSWindow,
               let debugWindow = manager.debugWindow,
               debugWindow.parent != nil else {

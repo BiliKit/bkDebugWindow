@@ -12,7 +12,7 @@ class baConfigureWindowDelegate: NSObject, NSWindowDelegate, NSPopoverDelegate {
     private var configPopover: NSPopover?
 
     // 窗口配置
-    private var windowConfig: DebugConfiguration.WindowConfig {
+    private var windowConfig: baConfiguration.WindowConfig {
         configManager.config.window
     }
 

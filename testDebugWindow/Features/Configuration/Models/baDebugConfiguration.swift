@@ -2,7 +2,10 @@ import Foundation
 
 
 /// 调试窗口配置
-struct DebugConfiguration: Codable {
+struct baConfiguration: Codable {
+    
+    var configFileName = "debug_config.json"
+    
     // 窗口配置
     struct WindowConfig: Codable {
         var defaultWidth: CGFloat
@@ -23,8 +26,14 @@ struct DebugConfiguration: Codable {
     }
 
     struct baDebugWindowConfig: Codable {
-        var position: CGPoint
-        var size: CGSize
+        
+        var windowIdentifier: String
+        var windowTitle: String
+        
+        static let `default` = baDebugWindowConfig(
+            windowIdentifier: "baDebugWindow",
+            windowTitle: "调试信息"
+        )
     }
 
     // 性能监控配置
@@ -60,11 +69,13 @@ struct DebugConfiguration: Codable {
     }
 
     var window: WindowConfig
+    var debugwindow: baDebugWindowConfig
     var performance: PerformanceConfig
     var log: LogConfig
 
-    static let `default` = DebugConfiguration(
+    static let `default` = baConfiguration(
         window: .default,
+        debugwindow: .default,
         performance: .default,
         log: .default
     )
