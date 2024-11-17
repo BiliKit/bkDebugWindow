@@ -109,11 +109,17 @@ extension baDebugWindowDelegate {
 
     func windowDidBecomeKey(_ notification: Notification) {
         guard let window = notification.object as? NSWindow else { return }
+        baDebugState.shared.system("debug window did become key")
+        manager.activeWindow = window
         handleWindowActivation(window)
     }
 
     func windowDidMove(_ notification: Notification){
-        baDebugState.shared.system("did move")
+        if manager.activeWindow == manager.debugWindow {
+            baDebugState.shared.system("debug window did move")
+        } else {
+            baDebugState.shared.system("debug window did move, but not active")
+        }
     }
 
     // MARK: - Window State Management

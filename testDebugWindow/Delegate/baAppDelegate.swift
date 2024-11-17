@@ -11,6 +11,11 @@ class baAppDelegate: NSObject, NSApplicationDelegate {
 
     let currentScreen = NSScreen.main ?? NSScreen.screens.first
 
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        baMainWindowDelegate.shared.setupMainWindow()
+        print("applicationWillFinishLaunching")
+    }
+
     /// 应用程序完成启动，进行debug window 等的初始化
     func applicationDidFinishLaunching(_ notification: Notification) {
 

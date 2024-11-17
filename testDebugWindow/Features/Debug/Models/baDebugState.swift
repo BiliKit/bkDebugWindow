@@ -37,7 +37,7 @@ class baDebugState: ObservableObject {
     /// 消息统计信息
     @Published private(set) var messageStats: [DebugMessageType: Int] = [:]
     /// 监视变量数组
-    @Published private(set) var watchVariables: [WatchVariable] = []
+    @Published private(set) var watchVariables: [baWatchVariable] = []
 
     // MARK: - 私有属性
 
@@ -302,14 +302,14 @@ class baDebugState: ObservableObject {
             let stringValue = String(describing: value)
             if let index = self.watchVariables.firstIndex(where: { $0.name == name }) {
                 // 更新现有变量
-                self.watchVariables[index] = WatchVariable(
+                self.watchVariables[index] = baWatchVariable(
                     name: name,
                     value: stringValue,
                     type: type
                 )
             } else {
                 // 添加新变量
-                self.watchVariables.append(WatchVariable(
+                self.watchVariables.append(baWatchVariable(
                     name: name,
                     value: stringValue,
                     type: type
@@ -447,21 +447,7 @@ extension baDebugState {
     }
 }
 
-// 添加一个用于存储监视变量的结构体
-struct WatchVariable: Identifiable, Hashable {
-    let id = UUID()
-    let name: String
-    var value: String
-    let type: String
 
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(id)
-    }
-
-    static func == (lhs: WatchVariable, rhs: WatchVariable) -> Bool {
-        lhs.id == rhs.id
-    }
-}
 
 // 添加一个用于存储监视变量的协议
 protocol WatchableVariable {

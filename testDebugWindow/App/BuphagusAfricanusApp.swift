@@ -14,7 +14,6 @@ struct BuphagusAfricanusApp: App {
         WindowGroupWithDebugWindow{
             baMainWindowView(windowId: "MainWindow")
         }
-         .windowResizability(.contentSize)
-         .windowStyle(.hiddenTitleBar)
+        .windowResizability(.contentSize)
     }
 }
